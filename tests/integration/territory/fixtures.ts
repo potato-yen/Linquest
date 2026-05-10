@@ -29,6 +29,7 @@ export interface TwoGroupFixture {
   findFarNeutralForGroup(groupId: string): Promise<{ id: string; q: number; r: number; is_capital: boolean }>;
   makeAdjacentEnemyTileForAttacker(): Promise<{ id: string; q: number; r: number; is_capital: boolean }>;
   makeAdjacentMultiplierTileForAttacker(multiplier: 2 | 3, ownerGroupId?: string | null): Promise<{ id: string; q: number; r: number; is_capital: boolean }>;
+  makeAdjacentSpecialTileForAttacker(): Promise<{ id: string; q: number; r: number; is_capital: boolean }>;
 }
 
 export async function setupTwoGroupFixture(): Promise<TwoGroupFixture> {
@@ -208,6 +209,21 @@ export async function setupTwoGroupFixture(): Promise<TwoGroupFixture> {
     return target;
   }
 
+  async function makeAdjacentSpecialTileForAttacker() {
+    const target = await findAdjacentNeutralForGroup(attackerGroup!.id);
+    await svc
+      .from('hex_tiles')
+      .update({
+        owner_group_id: null,
+        kind: 'special',
+        multiplier: null,
+        is_capital: false,
+      })
+      .eq('id', target.id);
+
+    return target;
+  }
+
   return {
     svc,
     attackerSb,
@@ -224,6 +240,7 @@ export async function setupTwoGroupFixture(): Promise<TwoGroupFixture> {
     findFarNeutralForGroup,
     makeAdjacentEnemyTileForAttacker,
     makeAdjacentMultiplierTileForAttacker,
+    makeAdjacentSpecialTileForAttacker,
   };
 }
 

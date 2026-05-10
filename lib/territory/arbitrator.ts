@@ -128,31 +128,25 @@ async function loadUserGroupId(
   userId: string,
 ): Promise<string> {
   const { data, error } = await sb
-    .from('groups')
-    .select('id')
-    .eq('activity_id', activityId);
+    .from('group_members')
+    .select('group_id, groups!inner(activity_id)')
+    .eq('user_id', userId);
 
   if (error) {
     throw new TerritoryError('NOT_GROUP_MEMBER', error.message, error);
   }
 
-  const { data: memberships, error: membershipsError } = await sb
-    .from('group_members')
-    .select('group_id')
-    .eq('user_id', userId);
-
-  if (membershipsError) {
-    throw new TerritoryError('NOT_GROUP_MEMBER', membershipsError.message, membershipsError);
-  }
-
-  const memberGroupIds = new Set((memberships ?? []).map((membership) => membership.group_id));
-  const group = (data ?? []).find((candidate) => memberGroupIds.has(candidate.id));
+  const group = (data ?? []).find((membership) => {
+    const related = membership.groups;
+    const groupRows = Array.isArray(related) ? related : related ? [related] : [];
+    return groupRows.some((row) => row.activity_id === activityId);
+  });
 
   if (!group) {
     throw new TerritoryError('NOT_GROUP_MEMBER', 'user is not in any group for this activity');
   }
 
-  return group.id;
+  return group.group_id;
 }
 
 async function loadTile(sb: SupabaseClient, tileId: string): Promise<HexTile> {

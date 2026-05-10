@@ -21,35 +21,9 @@ export async function endActivity(
   sb: SupabaseClient,
   activity_id: string,
 ): Promise<void> {
-  const { data: activity, error: activityError } = await sb
-    .from('activities')
-    .select('map_id')
-    .eq('id', activity_id)
-    .single();
-
-  if (activityError) {
-    throw activityError;
-  }
-
-  if (activity?.map_id) {
-    const { error: tilesError } = await sb
-      .from('hex_tiles')
-      .update({
-        active_challenge_user_id: null,
-        active_challenge_until: null,
-        active_battle_id: null,
-      })
-      .eq('map_id', activity.map_id);
-
-    if (tilesError) {
-      throw tilesError;
-    }
-  }
-
-  const { error } = await sb
-    .from('activities')
-    .update({ status: 'ended' })
-    .eq('id', activity_id);
+  const { error } = await sb.rpc('settle_activity', {
+    p_activity_id: activity_id,
+  });
 
   if (error) {
     throw error;
