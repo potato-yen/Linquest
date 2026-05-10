@@ -3,6 +3,7 @@ import { sendBattleInvite, submitBattleAnswer } from '../../../lib/realtime-batt
 import { resetDb } from '../../setup/reset-db';
 import { makeAnonClient } from '../../setup/supabase-test-client';
 import { setupTwoGroupFixture } from '../territory/fixtures';
+import { createAcceptedBattle, forceBattleQuestionWindow, getBattleRow } from './helpers';
 
 const describeIntegration =
   process.env.SUPABASE_INTEGRATION_TESTS === '1' ? describe : describe.skip;
@@ -94,5 +95,54 @@ describeIntegration('realtime battle watchdog and security regressions', () => {
       .eq('event_type', 'challenge_cost');
     const refundEvent = (refundEvents ?? []).find((event) => event.payload?.refund === true);
     expect(refundEvent?.score_delta).toBe(50);
+  });
+
+  it('invite timeout aborts the battle without refunding the challenger cost', async () => {
+    const fixture = await setupTwoGroupFixture();
+    const tile = await fixture.makeAdjacentSpecialTileForAttacker();
+    const before = await fixture.getTreasury(fixture.attackerGroupId);
+    const battleId = await sendBattleInvite(fixture.attackerSb, {
+      activity_id: fixture.activity_id,
+      tile_id: tile.id,
+      defender_user_id: fixture.defenderUserId,
+    });
+
+    await fixture.svc
+      .from('battles')
+      .update({
+        created_at: new Date(Date.now() - 10 * 60_000).toISOString(),
+      })
+      .eq('id', battleId);
+
+    const { data, error } = await fixture.svc.rpc('expire_battle_invites');
+    expect(error).toBeNull();
+    expect(data).toBe(1);
+
+    const battle = await getBattleRow(fixture, battleId);
+    expect(battle.status).toBe('aborted');
+    expect(battle.abort_reason).toBe('invite_timeout');
+    expect(await fixture.getTreasury(fixture.attackerGroupId) - before).toBe(-50);
+  });
+
+  it('tile_locked_externally aborts and refunds through disconnect watchdog', async () => {
+    const { fixture, battleId, tileId } = await createAcceptedBattle();
+    await forceBattleQuestionWindow(fixture, battleId);
+    const before = await fixture.getTreasury(fixture.attackerGroupId);
+
+    await fixture.svc
+      .from('hex_tiles')
+      .update({
+        active_battle_id: null,
+      })
+      .eq('id', tileId);
+
+    const { data, error } = await fixture.svc.rpc('expire_battle_disconnects');
+    expect(error).toBeNull();
+    expect(data).toBe(1);
+
+    const battle = await getBattleRow(fixture, battleId);
+    expect(battle.status).toBe('aborted');
+    expect(battle.abort_reason).toBe('tile_locked_externally');
+    expect(await fixture.getTreasury(fixture.attackerGroupId) - before).toBe(0);
   });
 });
