@@ -32,6 +32,19 @@ describe('realtime battle types', () => {
     expect(question).not.toHaveProperty('correct_answer');
   });
 
+  it('keeps battle question choices as a 4-option tuple', () => {
+    const question = toBattleQuestion({
+      id: 'q2',
+      prompt: '2 + 2',
+      choices: ['1', '2', '3', '4'],
+      correct_answer: 3,
+    });
+
+    const tuple: [string, string, string, string] = question.choices;
+    expect(tuple).toEqual(['1', '2', '3', '4']);
+    expect(tuple).toHaveLength(4);
+  });
+
   it('marks finished and aborted as terminal battle states', () => {
     expect(isTerminalBattleStatus('pending_invite')).toBe(false);
     expect(isTerminalBattleStatus('in_progress')).toBe(false);

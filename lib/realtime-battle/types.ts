@@ -15,7 +15,7 @@ export type BattleAnswerResult =
 export interface BattleQuestion {
   id: string;
   prompt: string;
-  choices: string[];
+  choices: [string, string, string, string];
 }
 
 export interface BattleQuestionRecord extends BattleQuestion {
@@ -75,7 +75,12 @@ export function toBattleQuestion(question: BattleQuestionRecord): BattleQuestion
   return {
     id: question.id,
     prompt: question.prompt,
-    choices: question.choices.slice(),
+    choices: [
+      question.choices[0],
+      question.choices[1],
+      question.choices[2],
+      question.choices[3],
+    ],
   };
 }
 
