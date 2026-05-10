@@ -1,0 +1,1 @@
+-- Seed data is loaded through module-specific utilities in this repository.

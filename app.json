@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Linquest",
+    "slug": "linquest",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "linquest",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "plugins": [
+      "expo-router"
+    ],
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
