@@ -18,7 +18,10 @@ Fill `.env` with your hosted Supabase project values:
 EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_TEST_PROJECT_REF=YOUR_TEST_PROJECT_REF
 ```
+
+`SUPABASE_TEST_PROJECT_REF` must point to a separate hosted Supabase project reserved for destructive integration tests. Do not point integration tests at your main project.
 
 ## Schema
 
@@ -40,9 +43,6 @@ Apply them in your Supabase project with the SQL editor or your preferred migrat
 ```bash
 npm install
 npm test
+npm run test:integration
 npx expo start --web
 ```
-
-## Collaboration
-
-See `docs/codex-onboarding.md`.
