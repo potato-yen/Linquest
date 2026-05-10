@@ -69,6 +69,10 @@ export async function resetDb() {
     .delete()
     .neq('id', '00000000-0000-0000-0000-000000000000');
   await sb
+    .from('battles')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000');
+  await sb
     .from('group_members')
     .delete()
     .neq('group_id', '00000000-0000-0000-0000-000000000000');

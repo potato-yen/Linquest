@@ -178,6 +178,10 @@ declare
   v_battle public.battles%rowtype;
   v_invite_timeout_minutes integer;
 begin
+  if v_caller is null then
+    raise exception 'NOT_AUTHENTICATED';
+  end if;
+
   select *
   into v_battle
   from public.battles
@@ -224,6 +228,10 @@ declare
   v_caller uuid := auth.uid();
   v_battle public.battles%rowtype;
 begin
+  if v_caller is null then
+    raise exception 'NOT_AUTHENTICATED';
+  end if;
+
   select *
   into v_battle
   from public.battles

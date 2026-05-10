@@ -47,16 +47,19 @@ export interface BattleRow {
 }
 
 export interface BattleRoomState {
-  battle: BattleRow | null;
-  current_question: BattleQuestion | null;
-  last_result: BattleAnswerResult | null;
+  row: BattleRow | null;
+  last_event?: {
+    type: string;
+    payload: unknown;
+    at: string;
+  };
 }
 
 export interface PresenceEntry {
   user_id: string;
   group_id: string;
   in_battle: boolean;
-  online_at: string;
+  last_active_at: string;
 }
 
 export const REALTIME_BATTLE_DEFAULTS = {

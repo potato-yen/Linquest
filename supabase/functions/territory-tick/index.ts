@@ -93,6 +93,26 @@ Deno.serve(async () => {
     }
   }
 
+  const { error: battleInviteError } = await sb.rpc('expire_battle_invites');
+  if (battleInviteError) {
+    return json({ error: battleInviteError.message }, 500);
+  }
+
+  const { error: battleQuestionError } = await sb.rpc('expire_battle_questions');
+  if (battleQuestionError) {
+    return json({ error: battleQuestionError.message }, 500);
+  }
+
+  const { error: battleDisconnectError } = await sb.rpc('expire_battle_disconnects');
+  if (battleDisconnectError) {
+    return json({ error: battleDisconnectError.message }, 500);
+  }
+
+  const { error: orphanLockError } = await sb.rpc('sweep_orphan_battle_locks');
+  if (orphanLockError) {
+    return json({ error: orphanLockError.message }, 500);
+  }
+
   return json({ processed: work.length, work });
 });
 

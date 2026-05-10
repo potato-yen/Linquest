@@ -21,6 +21,8 @@ export interface TwoGroupFixture {
   map_id: string;
   attackerGroupId: string;
   defenderGroupId: string;
+  attackerUserId: string;
+  defenderUserId: string;
   attackerCredentials: { email: string; password: string };
   defenderCredentials: { email: string; password: string };
   getTreasury(groupId: string): Promise<number>;
@@ -81,6 +83,50 @@ export async function setupTwoGroupFixture(): Promise<TwoGroupFixture> {
     .insert({ name: 'territory-fixture-bank', source: 'official' })
     .select()
     .single();
+  await svc.from('questions').insert([
+    {
+      bank_id: bank!.id,
+      prompt: 'abandon',
+      correct_answer: '放棄',
+      distractors: ['接受', '維持', '增加'],
+      meta: { difficulty: 'standard' },
+    },
+    {
+      bank_id: bank!.id,
+      prompt: 'ephemeral',
+      correct_answer: '短暫的',
+      distractors: ['永恆的', '堅固的', '清晰的'],
+      meta: { difficulty: 'advanced' },
+    },
+    {
+      bank_id: bank!.id,
+      prompt: 'brisk',
+      correct_answer: '輕快的',
+      distractors: ['緩慢的', '含糊的', '虛弱的'],
+      meta: { difficulty: 'standard' },
+    },
+    {
+      bank_id: bank!.id,
+      prompt: 'meticulous',
+      correct_answer: '一絲不苟的',
+      distractors: ['草率的', '含糊的', '臨時的'],
+      meta: { difficulty: 'advanced' },
+    },
+    {
+      bank_id: bank!.id,
+      prompt: 'immerse',
+      correct_answer: '使沉浸',
+      distractors: ['使逃離', '使乾燥', '使遺忘'],
+      meta: { difficulty: 'standard' },
+    },
+    {
+      bank_id: bank!.id,
+      prompt: 'novice',
+      correct_answer: '新手',
+      distractors: ['專家', '裁判', '觀眾'],
+      meta: { difficulty: 'standard' },
+    },
+  ]);
   const { data: activity } = await svc
     .from('activities')
     .insert({
@@ -232,6 +278,8 @@ export async function setupTwoGroupFixture(): Promise<TwoGroupFixture> {
     map_id: initialized.map_id,
     attackerGroupId: attackerGroup!.id,
     defenderGroupId: defenderGroup!.id,
+    attackerUserId: attackerId,
+    defenderUserId: defenderId,
     attackerCredentials,
     defenderCredentials,
     getTreasury,
