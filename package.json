@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "test": "jest",
     "test:unit": "jest tests/unit",
+    "test:integration": "SUPABASE_INTEGRATION_TESTS=1 jest tests/integration --runInBand",
     "test:watch": "jest --watch"
   },
   "dependencies": {

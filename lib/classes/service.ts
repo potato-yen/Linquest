@@ -125,9 +125,17 @@ export async function listMyClasses(sb: SupabaseClient): Promise<Class[]> {
   }
 
   for (const membership of memberships ?? []) {
-    const relatedClass = (membership as { classes?: Class | null }).classes;
-    if (relatedClass) {
-      classes.set(relatedClass.id, relatedClass);
+    const relatedClass = (
+      membership as { classes?: Class | Class[] | null }
+    ).classes;
+    const normalizedClasses = Array.isArray(relatedClass)
+      ? relatedClass
+      : relatedClass
+        ? [relatedClass]
+        : [];
+
+    for (const classRow of normalizedClasses) {
+      classes.set(classRow.id, classRow);
     }
   }
 
