@@ -37,6 +37,8 @@ export interface HexTile {
   owner_group_id: string | null;
   is_capital: boolean;
   protected_until: string | null;
+  active_challenge_id: string | null;
+  active_challenge_kind: ChallengeKind | null;
   active_challenge_user_id: string | null;
   active_challenge_until: string | null;
   active_battle_id: string | null;

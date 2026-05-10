@@ -1,109 +1,153 @@
 import { TerritoryError } from './errors';
-import { ChallengeSpec, HexTile, TerritoryParams } from './types';
+import { ChallengeKind, ChallengeSpec, HexTile, TerritoryParams } from './types';
+
+export interface ChallengeOutcome {
+  successReward: number;
+  additionalFailAttackerDelta: number;
+  failDefenderDelta: number;
+}
 
 export function resolveChallengeSpec(
   tile: HexTile,
   requestorGroupId: string,
   params: TerritoryParams,
 ): ChallengeSpec {
-  if (tile.kind === 'special') {
-    if (tile.owner_group_id !== null) {
-      throw new TerritoryError('PROTECTED', 'special tile already captured');
-    }
+  const kind = deriveChallengeKind(tile, requestorGroupId);
+  const cost = deriveChallengeCost(tile, kind, params);
+  const outcome = deriveChallengeOutcome(kind, cost, params);
 
+  if (kind === 'capture_special') {
     return {
-      kind: 'capture_special',
+      kind,
       question_count: 0,
       difficulty: 'standard',
-      cost: params.cost_special,
-      success_reward: params.cost_special,
-      fail_attacker_delta: -params.cost_special,
-      fail_defender_delta: 0,
+      cost,
+      success_reward: outcome.successReward,
+      fail_attacker_delta: -cost,
+      fail_defender_delta: outcome.failDefenderDelta,
       applies_cooldown_on_success: false,
       applies_cooldown_on_fail: false,
     };
   }
 
-  if (tile.kind === 'multiplier') {
+  if (kind === 'capture_multiplier' || kind === 'reverse_multiplier' || kind === 'self_recapture_multiplier') {
     const multiplier = tile.multiplier as 2 | 3;
-    const baseCost = multiplier === 2 ? params.cost_2x : params.cost_3x;
-
-    if (tile.owner_group_id === null) {
-      return {
-        kind: 'capture_multiplier',
-        question_count: multiplier === 2 ? 10 : 15,
-        difficulty: 'advanced',
-        cost: baseCost,
-        success_reward: Math.round(baseCost * params.roi_factor),
-        fail_attacker_delta: -baseCost,
-        fail_defender_delta: 0,
-        applies_cooldown_on_success: true,
-        applies_cooldown_on_fail: false,
-      };
-    }
-
-    if (tile.owner_group_id === requestorGroupId) {
-      const selfCost = (multiplier - 1) * params.cost_normal;
-
-      return {
-        kind: 'self_recapture_multiplier',
-        question_count: (multiplier - 1) * 5,
-        difficulty: 'advanced',
-        cost: selfCost,
-        success_reward: Math.round(selfCost * params.roi_factor),
-        fail_attacker_delta: -selfCost,
-        fail_defender_delta: 0,
-        applies_cooldown_on_success: true,
-        applies_cooldown_on_fail: false,
-      };
-    }
+    const questionCount = kind === 'capture_multiplier'
+      ? (multiplier === 2 ? 10 : 15)
+      : kind === 'reverse_multiplier'
+        ? (multiplier === 2 ? 14 : 18)
+        : (multiplier - 1) * 5;
 
     return {
-      kind: 'reverse_multiplier',
-      question_count: multiplier === 2 ? 14 : 18,
+      kind,
+      question_count: questionCount,
       difficulty: 'advanced',
-      cost: baseCost,
-      success_reward: Math.round(
-        baseCost * params.roi_factor * params.reverse_attack_reward_factor,
-      ),
-      fail_attacker_delta: -Math.round(baseCost * params.reverse_attack_fail_factor),
-      fail_defender_delta: Math.round(baseCost * (params.reverse_attack_fail_factor - 1)),
+      cost,
+      success_reward: outcome.successReward,
+      fail_attacker_delta: kind === 'reverse_multiplier'
+        ? -Math.round(cost * params.reverse_attack_fail_factor)
+        : -cost,
+      fail_defender_delta: outcome.failDefenderDelta,
       applies_cooldown_on_success: true,
-      applies_cooldown_on_fail: true,
+      applies_cooldown_on_fail: kind === 'reverse_multiplier',
     };
   }
 
+  return {
+    kind,
+    question_count: kind === 'capture_normal' ? 5 : 7,
+    difficulty: 'standard',
+    cost,
+    success_reward: outcome.successReward,
+    fail_attacker_delta: kind === 'reverse_normal'
+      ? -Math.round(cost * params.reverse_attack_fail_factor)
+      : -cost,
+    fail_defender_delta: outcome.failDefenderDelta,
+    applies_cooldown_on_success: true,
+    applies_cooldown_on_fail: kind === 'reverse_normal',
+  };
+}
+
+export function deriveChallengeKind(
+  tile: HexTile,
+  requestorGroupId: string,
+): ChallengeKind {
+  if (tile.kind === 'special') {
+    if (tile.owner_group_id !== null) {
+      throw new TerritoryError('PROTECTED', 'special tile already captured');
+    }
+
+    return 'capture_special';
+  }
+
+  if (tile.kind === 'multiplier') {
+    if (tile.owner_group_id === null) {
+      return 'capture_multiplier';
+    }
+
+    if (tile.owner_group_id === requestorGroupId) {
+      return 'self_recapture_multiplier';
+    }
+
+    return 'reverse_multiplier';
+  }
+
   if (tile.owner_group_id === null) {
-    return {
-      kind: 'capture_normal',
-      question_count: 5,
-      difficulty: 'standard',
-      cost: params.cost_normal,
-      success_reward: Math.round(params.cost_normal * params.roi_factor),
-      fail_attacker_delta: -params.cost_normal,
-      fail_defender_delta: 0,
-      applies_cooldown_on_success: true,
-      applies_cooldown_on_fail: false,
-    };
+    return 'capture_normal';
   }
 
   if (tile.owner_group_id === requestorGroupId) {
     throw new TerritoryError('NOT_ADJACENT', 'cannot capture own normal tile');
   }
 
+  return 'reverse_normal';
+}
+
+export function deriveChallengeCost(
+  tile: HexTile,
+  kind: ChallengeKind,
+  params: TerritoryParams,
+): number {
+  if (kind === 'capture_special') {
+    return params.cost_special;
+  }
+
+  if (kind === 'self_recapture_multiplier') {
+    const multiplier = tile.multiplier as 2 | 3;
+    return (multiplier - 1) * params.cost_normal;
+  }
+
+  if (kind === 'capture_multiplier' || kind === 'reverse_multiplier') {
+    return tile.multiplier === 3 ? params.cost_3x : params.cost_2x;
+  }
+
+  return params.cost_normal;
+}
+
+export function deriveChallengeOutcome(
+  kind: ChallengeKind,
+  cost: number,
+  params: TerritoryParams,
+): ChallengeOutcome {
+  if (kind === 'reverse_normal' || kind === 'reverse_multiplier') {
+    return {
+      successReward: Math.round(cost * params.roi_factor * params.reverse_attack_reward_factor),
+      additionalFailAttackerDelta: -Math.round(cost * (params.reverse_attack_fail_factor - 1)),
+      failDefenderDelta: Math.round(cost * (params.reverse_attack_fail_factor - 1)),
+    };
+  }
+
+  if (kind === 'capture_special') {
+    return {
+      successReward: cost,
+      additionalFailAttackerDelta: 0,
+      failDefenderDelta: 0,
+    };
+  }
+
   return {
-    kind: 'reverse_normal',
-    question_count: 7,
-    difficulty: 'standard',
-    cost: params.cost_normal,
-    success_reward: Math.round(
-      params.cost_normal * params.roi_factor * params.reverse_attack_reward_factor,
-    ),
-    fail_attacker_delta: -Math.round(params.cost_normal * params.reverse_attack_fail_factor),
-    fail_defender_delta: Math.round(
-      params.cost_normal * (params.reverse_attack_fail_factor - 1),
-    ),
-    applies_cooldown_on_success: true,
-    applies_cooldown_on_fail: true,
+    successReward: Math.round(cost * params.roi_factor),
+    additionalFailAttackerDelta: 0,
+    failDefenderDelta: 0,
   };
 }

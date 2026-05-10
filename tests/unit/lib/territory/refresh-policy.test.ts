@@ -12,6 +12,8 @@ function tile(id: string, kind: HexTile['kind'], extra: Partial<HexTile> = {}): 
     owner_group_id: null,
     is_capital: false,
     protected_until: null,
+    active_challenge_id: null,
+    active_challenge_kind: null,
     active_challenge_user_id: null,
     active_challenge_until: null,
     active_battle_id: null,

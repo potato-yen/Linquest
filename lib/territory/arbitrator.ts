@@ -56,11 +56,7 @@ export async function attemptCapture(
     : params.challenge_lock_seconds;
   const { data, error } = await sb.rpc('attempt_capture', {
     p_activity_id: input.activity_id,
-    p_user_id: userId,
     p_tile_id: input.tile_id,
-    p_cost: spec.cost,
-    p_lock_seconds: lockSeconds,
-    p_is_battle: spec.kind === 'capture_special',
   });
 
   if (error) {
@@ -87,19 +83,11 @@ export async function resolveChallenge(
   )
     ? params.tile_cooldown_minutes * 60
     : 0;
-  const additionalFailAttackerDelta = input.spec.fail_attacker_delta + input.spec.cost;
   const { error } = await sb.rpc('resolve_challenge', {
     p_activity_id: input.activity_id,
     p_tile_id: input.tile_id,
-    p_user_id: userId,
     p_challenge_id: input.challenge_id,
-    p_kind: input.kind,
     p_all_correct: input.all_correct,
-    p_success_reward: input.all_correct ? input.spec.success_reward : 0,
-    p_fail_attacker_delta: additionalFailAttackerDelta,
-    p_fail_defender_delta: input.spec.fail_defender_delta,
-    p_apply_cooldown_seconds: cooldown,
-    p_special_protected_until: input.special_protected_until ?? null,
   });
 
   if (error) {
@@ -114,7 +102,7 @@ async function requireUserId(sb: SupabaseClient): Promise<string> {
   const userId = session?.user.id;
 
   if (!userId) {
-    throw new TerritoryError('NOT_GROUP_MEMBER', 'not authenticated');
+    throw new TerritoryError('NOT_AUTHENTICATED', 'not authenticated');
   }
 
   return userId;
@@ -202,10 +190,13 @@ function parseRpcCode(message: string): TerritoryErrorCode {
     'INSUFFICIENT_TREASURY',
     'TILE_NOT_FOUND',
     'NOT_GROUP_MEMBER',
+    'NOT_AUTHENTICATED',
     'ACTIVITY_NOT_ACTIVE',
     'INVALID_REFRESH',
     'CHALLENGE_NOT_FOUND',
     'CHALLENGE_USER_MISMATCH',
+    'CHALLENGE_ID_MISMATCH',
+    'CHALLENGE_EXPIRED',
     'BATTLE_DISPATCH_REQUIRED',
   ];
 
