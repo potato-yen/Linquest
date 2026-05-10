@@ -27,4 +27,14 @@ describeIntegration('territory settlement', () => {
     expect(leaderboards.treasury[0].treasury).toBeGreaterThanOrEqual(leaderboards.treasury[1].treasury);
     expect(leaderboards.territory[0].owned_count).toBeGreaterThanOrEqual(leaderboards.territory[1].owned_count);
   });
+
+  it('rejects a second settlement call once the activity is ended', async () => {
+    const fixture = await setupTwoGroupFixture();
+
+    await endActivity(fixture.svc, fixture.activity_id);
+
+    await expect(endActivity(fixture.svc, fixture.activity_id)).rejects.toMatchObject({
+      message: expect.stringMatching(/ACTIVITY_NOT_ACTIVE/i),
+    });
+  });
 });

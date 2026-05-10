@@ -1,4 +1,5 @@
 export type TerritoryErrorCode =
+  | 'ALREADY_OWNED'
   | 'NOT_ADJACENT'
   | 'PROTECTED'
   | 'CAPITAL_IMMUNE'

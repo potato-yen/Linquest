@@ -51,9 +51,6 @@ export async function attemptCapture(
   }
 
   const spec = resolveChallengeSpec(tile, myGroupId, params);
-  const lockSeconds = spec.kind === 'capture_special'
-    ? params.battle_invite_timeout_minutes * 60
-    : params.challenge_lock_seconds;
   const { data, error } = await sb.rpc('attempt_capture', {
     p_activity_id: input.activity_id,
     p_tile_id: input.tile_id,
@@ -75,14 +72,7 @@ export async function resolveChallenge(
   sb: SupabaseClient,
   input: ResolveChallengeInput,
 ): Promise<void> {
-  const params = { ...TERRITORY_DEFAULTS, ...(input.params ?? {}) };
-  const userId = await requireUserId(sb);
-  const cooldown = (
-    (input.all_correct && input.spec.applies_cooldown_on_success) ||
-    (!input.all_correct && input.spec.applies_cooldown_on_fail)
-  )
-    ? params.tile_cooldown_minutes * 60
-    : 0;
+  await requireUserId(sb);
   const { error } = await sb.rpc('resolve_challenge', {
     p_activity_id: input.activity_id,
     p_tile_id: input.tile_id,
@@ -130,23 +120,19 @@ async function loadUserGroupId(
   const { data, error } = await sb
     .from('group_members')
     .select('group_id, groups!inner(activity_id)')
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .eq('groups.activity_id', activityId)
+    .maybeSingle();
 
   if (error) {
     throw new TerritoryError('NOT_GROUP_MEMBER', error.message, error);
   }
 
-  const group = (data ?? []).find((membership) => {
-    const related = membership.groups;
-    const groupRows = Array.isArray(related) ? related : related ? [related] : [];
-    return groupRows.some((row) => row.activity_id === activityId);
-  });
-
-  if (!group) {
+  if (!data) {
     throw new TerritoryError('NOT_GROUP_MEMBER', 'user is not in any group for this activity');
   }
 
-  return group.group_id;
+  return data.group_id;
 }
 
 async function loadTile(sb: SupabaseClient, tileId: string): Promise<HexTile> {
@@ -177,6 +163,7 @@ async function loadOwnedTiles(
 
 function parseRpcCode(message: string): TerritoryErrorCode {
   const codes: TerritoryErrorCode[] = [
+    'ALREADY_OWNED',
     'NOT_ADJACENT',
     'PROTECTED',
     'CAPITAL_IMMUNE',

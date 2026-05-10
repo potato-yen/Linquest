@@ -19,7 +19,7 @@ export function resolveChallengeSpec(
   if (kind === 'capture_special') {
     return {
       kind,
-      question_count: 0,
+      question_count: 0, // capture_special resolves through the battle flow, not quiz dispatch.
       difficulty: 'standard',
       cost,
       success_reward: outcome.successReward,
@@ -97,7 +97,7 @@ export function deriveChallengeKind(
   }
 
   if (tile.owner_group_id === requestorGroupId) {
-    throw new TerritoryError('NOT_ADJACENT', 'cannot capture own normal tile');
+    throw new TerritoryError('ALREADY_OWNED', 'cannot capture an already-owned normal tile');
   }
 
   return 'reverse_normal';

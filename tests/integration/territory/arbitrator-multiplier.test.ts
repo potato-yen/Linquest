@@ -43,4 +43,39 @@ describeIntegration('territory arbitrator multiplier flow', () => {
     expect(updated!.multiplier).toBeNull();
     expect(updated!.owner_group_id).toBe(fixture.attackerGroupId);
   });
+
+  it('self-recapture failure degrades the tile and writes an audit event', async () => {
+    const fixture = await setupTwoGroupFixture();
+    const tile = await fixture.makeAdjacentMultiplierTileForAttacker(2, fixture.attackerGroupId);
+
+    const capture = await attemptCapture(fixture.attackerSb, {
+      activity_id: fixture.activity_id,
+      tile_id: tile.id,
+    });
+    expect(capture.spec.kind).toBe('self_recapture_multiplier');
+
+    await resolveChallenge(fixture.attackerSb, {
+      activity_id: fixture.activity_id,
+      challenge_id: capture.challenge_id,
+      tile_id: tile.id,
+      kind: capture.spec.kind,
+      all_correct: false,
+      spec: capture.spec,
+    });
+
+    const { data: updated } = await fixture.svc
+      .from('hex_tiles')
+      .select('kind, multiplier')
+      .eq('id', tile.id)
+      .single();
+    expect(updated!.kind).toBe('normal');
+    expect(updated!.multiplier).toBeNull();
+
+    const { data: events } = await fixture.svc
+      .from('territory_events')
+      .select('event_type, score_delta, payload')
+      .eq('tile_id', tile.id)
+      .eq('event_type', 'multiplier_self_recapture');
+    expect(events!.some((event) => event.score_delta === 0 && event.payload.role === 'fail')).toBe(true);
+  });
 });

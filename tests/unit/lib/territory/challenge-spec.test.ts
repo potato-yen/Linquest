@@ -163,4 +163,12 @@ describe('challenge derivation helpers', () => {
       failDefenderDelta: 0,
     });
   });
+
+  it('raises ALREADY_OWNED for own normal tiles', () => {
+    expect(() =>
+      deriveChallengeKind(
+        { ...baseTile, owner_group_id: 'gA' },
+        'gA',
+      )).toThrow(expect.objectContaining({ code: 'ALREADY_OWNED' }));
+  });
 });
