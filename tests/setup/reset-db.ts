@@ -60,19 +60,44 @@ export async function resetDb() {
   const users = await listAllUsers();
   const userIds = users.map((user) => user.id);
 
+  await sb
+    .from('territory_events')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000');
+  await sb
+    .from('refresh_waves')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000');
+  await sb
+    .from('group_members')
+    .delete()
+    .neq('group_id', '00000000-0000-0000-0000-000000000000');
+  await sb
+    .from('groups')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000');
+  await sb
+    .from('hex_tiles')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000');
+  await sb
+    .from('maps')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000');
+  await sb
+    .from('activities')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000');
+  await sb.from('attempts').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
   if (userIds.length > 0) {
     await sb.from('class_members').delete().in('user_id', userIds);
     await sb.from('classes').delete().in('owner_teacher_id', userIds);
-    await sb.from('attempts').delete().in('user_id', userIds);
     await sb.from('users').delete().in('id', userIds);
   }
 
   await sb.from('questions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   await sb.from('question_banks').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await sb
-    .from('territory_events')
-    .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000');
 
   for (const user of users) {
     await sb.auth.admin.deleteUser(user.id);
