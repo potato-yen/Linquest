@@ -272,6 +272,41 @@ describe('teacher-console service', () => {
     });
   });
 
+  it('attempts rollback when publish retries hit GROUPS_ALREADY_EXIST before started is set', async () => {
+    const sb = makeSb();
+    const select = jest.fn().mockReturnThis();
+    const eq = jest.fn().mockReturnThis();
+    const single = jest.fn().mockResolvedValue({
+      data: {
+        settings_json: {
+          map_size_target: 60,
+          refresh_interval_hours: 12,
+        },
+      },
+      error: null,
+    });
+    sb.from.mockReturnValue({ select, eq, single });
+    sb.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'GROUPS_ALREADY_EXIST' },
+    });
+    sb.rpc.mockResolvedValueOnce({ data: null, error: null });
+
+    await expect(publishActivity(sb as never, 'activity-1')).rejects.toEqual(
+      expect.objectContaining<Partial<TeacherConsoleError>>({
+        name: 'TeacherConsoleError',
+        code: 'GROUPS_ALREADY_EXIST',
+      }),
+    );
+
+    expect(sb.rpc).toHaveBeenNthCalledWith(1, 'snapshot_class_and_create_groups', {
+      p_activity_id: 'activity-1',
+    });
+    expect(sb.rpc).toHaveBeenNthCalledWith(2, 'rollback_activity_publish', {
+      p_activity_id: 'activity-1',
+    });
+  });
+
   it('preserves the original publish error even if rollback also fails', async () => {
     const sb = makeSb();
     const select = jest.fn().mockReturnThis();

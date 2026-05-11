@@ -157,7 +157,12 @@ export async function publishActivity(
       throw finalizeError;
     }
   } catch (error) {
-    if (started) {
+    const code = error instanceof TeacherConsoleError
+      ? error.code
+      : parseTeacherConsoleRpcCode(error instanceof Error ? error.message : '');
+    const shouldRollback = started || code === 'GROUPS_ALREADY_EXIST';
+
+    if (shouldRollback) {
       try {
         await rollbackActivityPublish(sb, activityId);
       } catch (rollbackError) {
