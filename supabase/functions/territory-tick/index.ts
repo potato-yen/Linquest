@@ -113,6 +113,11 @@ Deno.serve(async () => {
     return json({ error: orphanLockError.message }, 500);
   }
 
+  const { error: teacherConsoleTickError } = await sb.rpc('tick_activity_lifecycle');
+  if (teacherConsoleTickError) {
+    console.error('tick_activity_lifecycle failed', teacherConsoleTickError.message);
+  }
+
   return json({ processed: work.length, work });
 });
 
