@@ -10,6 +10,7 @@ export interface TeacherConsoleFixture {
   classId: string;
   teacherId: string;
   studentIds: string[];
+  studentCredentials: Array<{ email: string; password: string }>;
   bankId: string;
 }
 
@@ -37,24 +38,27 @@ export async function setupTeacherConsoleFixture(options?: {
   const classroom = await createClass(teacherSb, { name: 'Teacher Console Class' });
   const serviceSb = makeServiceClient();
   const studentIds: string[] = [];
+  const studentCredentials: Array<{ email: string; password: string }> = [];
 
   for (let index = 0; index < studentCount; index += 1) {
     const studentSb = makeAnonClient();
     const email = `teacher-console-student-${index}@test.com`;
+    const password = 'pw-12345678';
     await signUp(studentSb, {
       email,
-      password: 'pw-12345678',
+      password,
       role: 'student',
     });
     await signIn(studentSb, {
       email,
-      password: 'pw-12345678',
+      password,
     });
 
     const {
       data: { session: studentSession },
     } = await studentSb.auth.getSession();
     studentIds.push(studentSession!.user.id);
+    studentCredentials.push({ email, password });
   }
 
   await serviceSb.from('class_members').insert(
@@ -98,6 +102,7 @@ export async function setupTeacherConsoleFixture(options?: {
     classId: classroom.id,
     teacherId,
     studentIds,
+    studentCredentials,
     bankId: bank.id,
   };
 }
