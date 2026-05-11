@@ -158,7 +158,11 @@ export async function publishActivity(
     }
   } catch (error) {
     if (started) {
-      await rollbackActivityPublish(sb, activityId);
+      try {
+        await rollbackActivityPublish(sb, activityId);
+      } catch (rollbackError) {
+        console.error('rollback_activity_publish failed', rollbackError);
+      }
     }
 
     if (error instanceof TeacherConsoleError) {

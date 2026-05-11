@@ -9,6 +9,7 @@ import {
   publishActivity,
 } from '../../../../lib/teacher-console/service';
 import { TeacherConsoleError } from '../../../../lib/teacher-console/errors';
+import { TEACHER_CONSOLE_DEFAULTS } from '../../../../lib/teacher-console/types';
 import { initializeMap } from '../../../../lib/territory/generator';
 import { runRefreshWave } from '../../../../lib/territory/refresh';
 
@@ -30,6 +31,23 @@ function makeSb() {
 describe('teacher-console service', () => {
   beforeEach(() => {
     jest.resetAllMocks();
+  });
+
+  it('exports teacher-console defaults for wizard consumers', () => {
+    expect(TEACHER_CONSOLE_DEFAULTS).toMatchObject({
+      group_count_default: 4,
+      group_count_min: 2,
+      group_count_max: 10,
+      map_size_default: 80,
+      map_size_min: 50,
+      map_size_max: 120,
+      refresh_interval_default_hours: 12,
+      refresh_interval_choices: [6, 8, 12, 24],
+      sudden_death_window_hours: 12,
+      mistakes_default_limit: 10,
+      mistakes_max_limit: 50,
+    });
+    expect(TEACHER_CONSOLE_DEFAULTS.group_color_palette).toHaveLength(10);
   });
 
   it('creates draft activities through the dedicated RPC', async () => {
@@ -252,6 +270,51 @@ describe('teacher-console service', () => {
     expect(sb.rpc).toHaveBeenNthCalledWith(2, 'rollback_activity_publish', {
       p_activity_id: 'activity-1',
     });
+  });
+
+  it('preserves the original publish error even if rollback also fails', async () => {
+    const sb = makeSb();
+    const select = jest.fn().mockReturnThis();
+    const eq = jest.fn().mockReturnThis();
+    const single = jest.fn().mockResolvedValue({
+      data: {
+        settings_json: {
+          map_size_target: 60,
+          refresh_interval_hours: 12,
+        },
+      },
+      error: null,
+    });
+    sb.from.mockReturnValue({ select, eq, single });
+    sb.rpc.mockResolvedValueOnce({
+      data: [
+        { group_id: 'group-1', member_count: 2 },
+      ],
+      error: null,
+    });
+    sb.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'ACTIVITY_NOT_DRAFT' },
+    });
+
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    (initializeMap as jest.Mock).mockRejectedValue(new Error('map failed'));
+
+    await expect(publishActivity(sb as never, 'activity-1')).rejects.toEqual(
+      expect.objectContaining<Partial<TeacherConsoleError>>({
+        name: 'TeacherConsoleError',
+        message: 'map failed',
+      }),
+    );
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'rollback_activity_publish failed',
+      expect.objectContaining({
+        code: 'ACTIVITY_NOT_DRAFT',
+      }),
+    );
+
+    consoleErrorSpy.mockRestore();
   });
 
   it('maps RPC failures into TeacherConsoleError instances', async () => {

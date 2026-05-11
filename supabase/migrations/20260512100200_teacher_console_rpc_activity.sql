@@ -225,6 +225,10 @@ begin
     raise exception 'NOT_CLASS_OWNER';
   end if;
 
+  if v_activity.status <> 'draft' then
+    raise exception 'ACTIVITY_NOT_DRAFT';
+  end if;
+
   delete from public.groups where activity_id = p_activity_id;
   delete from public.maps where activity_id = p_activity_id;
 

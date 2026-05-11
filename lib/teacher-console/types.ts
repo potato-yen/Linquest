@@ -1,5 +1,24 @@
 import { ActivityStatus } from '../territory/types';
 
+export const TEACHER_CONSOLE_DEFAULTS = {
+  group_count_default: 4,
+  group_count_min: 2,
+  group_count_max: 10,
+  map_size_default: 80,
+  map_size_min: 50,
+  map_size_max: 120,
+  refresh_interval_default_hours: 12,
+  refresh_interval_choices: [6, 8, 12, 24] as const,
+  ends_at_min_offset_minutes: 5,
+  sudden_death_window_hours: 12,
+  mistakes_default_limit: 10,
+  mistakes_max_limit: 50,
+  group_color_palette: [
+    '#7E5A3A', '#5A7E3A', '#3A5A7E', '#7E3A5A', '#3A7E5A',
+    '#7E7E3A', '#3A7E7E', '#7E3A3A', '#5A3A7E', '#3A3A7E',
+  ] as const,
+} as const;
+
 export interface ActivityDraftInput {
   class_id: string;
   name: string;
