@@ -12,6 +12,7 @@ supabase/.temp/
 .DS_Store
 
 .claude/
+.superpowers/
 docs/
 SPEC.md
 AGENTS.md
