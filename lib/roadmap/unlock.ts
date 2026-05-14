@@ -4,11 +4,13 @@ export function shouldUnlock(
   firstRoundCorrect: number,
   total: number = ROADMAP_STAGE_QUESTION_COUNT,
 ): boolean {
-  if (!Number.isFinite(firstRoundCorrect) || firstRoundCorrect < 0) {
-    throw new Error(`shouldUnlock: firstRoundCorrect must be >= 0, got ${firstRoundCorrect}`);
+  if (!Number.isInteger(firstRoundCorrect) || firstRoundCorrect < 0) {
+    throw new Error(
+      `shouldUnlock: firstRoundCorrect must be a non-negative integer, got ${firstRoundCorrect}`,
+    );
   }
-  if (!Number.isFinite(total) || total < 0) {
-    throw new Error(`shouldUnlock: total must be >= 0, got ${total}`);
+  if (!Number.isInteger(total) || total < 0) {
+    throw new Error(`shouldUnlock: total must be a non-negative integer, got ${total}`);
   }
   if (firstRoundCorrect > total) {
     throw new Error(

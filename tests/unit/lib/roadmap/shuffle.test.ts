@@ -24,7 +24,9 @@ describe('shuffle', () => {
     const input = [1, 2, 3, 4, 5];
     const rng1 = makeSeqRng([0.1, 0.5, 0.9, 0.3]);
     const rng2 = makeSeqRng([0.1, 0.5, 0.9, 0.3]);
-    expect(shuffle(input, rng1)).toEqual(shuffle(input, rng2));
+    const out = shuffle(input, rng1);
+    expect(out).toEqual(shuffle(input, rng2));
+    expect(out).not.toEqual(input);
   });
 
   it('handles empty array', () => {

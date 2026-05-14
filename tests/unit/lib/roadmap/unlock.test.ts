@@ -31,4 +31,9 @@ describe('shouldUnlock', () => {
     expect(() => shouldUnlock(-1, 15)).toThrow();
     expect(() => shouldUnlock(5, -1)).toThrow();
   });
+
+  it('throws on fractional correct or total', () => {
+    expect(() => shouldUnlock(11.5, 15)).toThrow();
+    expect(() => shouldUnlock(12, 15.5)).toThrow();
+  });
 });

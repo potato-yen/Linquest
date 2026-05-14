@@ -22,7 +22,7 @@ export async function getProgress(
   sb: SupabaseClient,
   userId: string,
   bankId: string,
-): Promise<RoadmapProgress> {
+): Promise<RoadmapProgress | null> {
   const { data, error } = await sb
     .from('roadmap_progress')
     .select('user_id, bank_id, current_stage, updated_at')
@@ -38,14 +38,14 @@ export async function getProgress(
     return data as RoadmapProgress;
   }
 
-  return {
-    user_id: userId,
-    bank_id: bankId,
-    current_stage: 1,
-    updated_at: new Date(0).toISOString(),
-  };
+  return null;
 }
 
+/**
+ * Upsert progress to currentStage. The returned row reflects DB trigger state:
+ * roadmap_progress_no_regress silently keeps the larger of existing/requested
+ * current_stage, so a caller may receive a larger value than it requested.
+ */
 export async function upsertProgress(
   sb: SupabaseClient,
   userId: string,
@@ -114,7 +114,12 @@ export async function getDefaultRoadmapBank(
     throw new Error('No roadmap-enabled official question bank found');
   }
 
-  return data as QuestionBankRow;
+  const row = data as QuestionBankRow;
+  if (!row.roadmap_config) {
+    throw new Error('Default roadmap bank has no roadmap_config');
+  }
+  validateRoadmapConfig(row.roadmap_config);
+  return row;
 }
 
 export async function selectStageQuestions(
@@ -123,13 +128,14 @@ export async function selectStageQuestions(
   stage: number,
   count: number = ROADMAP_STAGE_QUESTION_COUNT,
   rng: () => number = Math.random,
+  config?: RoadmapConfig,
 ): Promise<StageQuestion[]> {
-  const { config } = await getBankWithConfig(sb, bankId);
-  if (!config) {
+  const resolvedConfig = config ?? (await getBankWithConfig(sb, bankId)).config;
+  if (!resolvedConfig) {
     throw new Error(`Bank ${bankId} has no roadmap_config`);
   }
 
-  const level = pickLevelForStage(stage, config);
+  const level = pickLevelForStage(stage, resolvedConfig);
   if (level === null) {
     throw new Error(
       `selectStageQuestions: stage ${stage} exceeds final range; caller should check pickLevelForStage first`,

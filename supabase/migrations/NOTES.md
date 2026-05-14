@@ -23,3 +23,4 @@ migration and update this note when a definition is superseded.
 | Migration | Purpose |
 |---|---|
 | `20260514100000_roadmap_init.sql` | Adds `roadmap_progress` table, `question_banks.roadmap_config` column, and `roadmap_progress_no_regress` trigger function enforcing monotonic non-decreasing `current_stage`. RLS limits rows to `auth.uid()`. See `docs/roadmap-spec.md` §2. |
+| `20260514100100_questions_roadmap_level_index.sql` | Adds a partial expression index on `questions ((meta->>'roadmap_level'))` for roadmap level question selection. |
