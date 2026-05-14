@@ -17,3 +17,9 @@ migration and update this note when a definition is superseded.
 |---|---|
 | `20260513100000_rpc_execute_privilege_hardening.sql` | Revokes default `PUBLIC` execute on SECURITY DEFINER RPCs and re-grants only intended caller roles. In particular, `public.settle_activity(uuid)` is service-role only. |
 | `20260513100100_grouping_helper_stable_shuffle.sql` | Redefines `public.compute_balanced_groups(uuid[], integer)` so `array_agg` orders by its own shuffle key instead of relying on subquery order preservation. |
+
+## Schema Additions
+
+| Migration | Purpose |
+|---|---|
+| `20260514100000_roadmap_init.sql` | Adds `roadmap_progress` table, `question_banks.roadmap_config` column, and `roadmap_progress_no_regress` trigger function enforcing monotonic non-decreasing `current_stage`. RLS limits rows to `auth.uid()`. See `docs/roadmap-spec.md` §2. |
