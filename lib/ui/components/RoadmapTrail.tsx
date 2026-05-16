@@ -37,12 +37,18 @@ export function RoadmapTrail({ lastStage, currentStage, width, height, onPressSt
         const s = i + 1;
         const pos = stagePosition({ stage: s, lastStage, viewport: { width, height } });
         return (
-          <Pressable
+          // Wrapper View carries the absolute position; Pressable's style goes
+          // to its inner Animated.View, so position: absolute must be on the outer View.
+          <View
             key={s}
-            onPress={() => onPressStage(s)}
-            accessibilityLabel={`stage-${s}`}
-            style={{ position: 'absolute', left: pos.x - 18, top: pos.y - 18, width: 36, height: 36 }}
-          />
+            style={{ position: 'absolute', left: pos.x - 24, top: pos.y - 24 }}
+          >
+            <Pressable
+              onPress={() => onPressStage(s)}
+              accessibilityLabel={`stage-${s}`}
+              style={{ width: 48, height: 48 }}
+            />
+          </View>
         );
       })}
     </View>

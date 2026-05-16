@@ -54,8 +54,21 @@ describe('rowsToQuestions', () => {
     expect(qs[1].meta.roadmap_level).toBe(2);
   });
 
-  it('throws when a required column is missing', () => {
+  it('throws when a partial header is present but required column is missing', () => {
+    // First row has 'prompt' (recognized as header intent) but no 'answer'.
     expect(() => rowsToQuestions([['prompt'], ['x']], 1)).toThrow(/answer/);
+  });
+
+  it('uses positional fallback (col 0 = prompt, col 1 = answer) when no header names recognized', () => {
+    const noHeader = [
+      ['一個', 'a', 'art.'],
+      ['第二', 'second', 'adj.'],
+      ['', '', ''],          // blank row → skipped
+    ];
+    const qs = rowsToQuestions(noHeader, 1);
+    expect(qs).toHaveLength(2);
+    expect(qs[0]).toMatchObject({ id: 'sheet-L1-r0', prompt: '一個', correct_answer: 'a' });
+    expect(qs[1]).toMatchObject({ id: 'sheet-L1-r1', prompt: '第二', correct_answer: 'second' });
   });
 });
 

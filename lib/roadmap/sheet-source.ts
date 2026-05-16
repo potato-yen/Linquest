@@ -24,18 +24,30 @@ export function rowsToQuestions(
   level: number,
 ): StageQuestion[] {
   if (rows.length === 0) return [];
-  const header = rows[0].map((h) => h.trim());
-  const col = (name: string) => header.indexOf(name);
-  const promptIdx = col('prompt');
-  const answerIdx = col('answer');
-  if (promptIdx < 0) throw new Error(`sheet (Level${level}): missing column "prompt"`);
-  if (answerIdx < 0) throw new Error(`sheet (Level${level}): missing column "answer"`);
-  const exIdx = col('example_sentence');
-  const exTrIdx = col('example_translation');
-  const ipaIdx = col('ipa');
+
+  // Detect whether row 0 is a named header (contains 'prompt' or 'answer').
+  // If neither is present, fall back to positional: col 0 = prompt, col 1 = answer.
+  const headerRow = rows[0].map((h) => h.trim().toLowerCase());
+  const pFromHeader = headerRow.indexOf('prompt');
+  const aFromHeader = headerRow.indexOf('answer');
+  const hasAnyHeader = pFromHeader >= 0 || aFromHeader >= 0;
+
+  if (hasAnyHeader) {
+    if (pFromHeader < 0) throw new Error(`sheet (Level${level}): missing column "prompt"`);
+    if (aFromHeader < 0) throw new Error(`sheet (Level${level}): missing column "answer"`);
+  }
+
+  const promptIdx = hasAnyHeader ? pFromHeader : 0;
+  const answerIdx = hasAnyHeader ? aFromHeader : 1;
+  const startRow = hasAnyHeader ? 1 : 0;
+
+  // Optional named columns are only addressable when a header row exists.
+  const exIdx   = hasAnyHeader ? headerRow.indexOf('example_sentence')   : -1;
+  const exTrIdx = hasAnyHeader ? headerRow.indexOf('example_translation') : -1;
+  const ipaIdx  = hasAnyHeader ? headerRow.indexOf('ipa')                 : -1;
 
   const out: StageQuestion[] = [];
-  for (let r = 1; r < rows.length; r += 1) {
+  for (let r = startRow; r < rows.length; r += 1) {
     const cells = rows[r];
     const prompt = (cells[promptIdx] ?? '').trim();
     const answer = (cells[answerIdx] ?? '').trim();
