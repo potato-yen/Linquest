@@ -14,16 +14,18 @@ export default function TerritoryTab() {
   const s = useSession();
   const sb = getSupabaseClient();
 
+  const isTeacher = s.status === 'auth' && s.user.role !== 'student';
   const { state, refresh } = useScreenData(async (_signal: AbortSignal) => {
     if (s.status !== 'auth') return null;
+    // Avoid joining group_members — its RLS has an infinite-recursion bug.
+    // activities RLS already filters by class membership, so no extra filter needed.
     const { data, error } = await sb
       .from('activities')
-      .select('id, name, status, ends_at, groups!inner(group_members!inner(user_id))')
-      .eq('groups.group_members.user_id', s.user.id)
+      .select('id, name, status, ends_at')
       .neq('status', 'draft')
       .order('starts_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []) as unknown as ActivityRow[];
+    return (data ?? []) as ActivityRow[];
   }, [s.status === 'auth' ? s.user.id : null], { isEmpty: (rows) => rows.length === 0 });
 
   return (
@@ -32,12 +34,16 @@ export default function TerritoryTab() {
       {state.status === 'loading' ? <Skeleton height={140} /> :
        state.status === 'error' ? <ErrorState error={state.error} onRetry={refresh} /> :
        state.status === 'empty' ? (
-        <EmptyState
-          title="還沒有活動"
-          body="加入老師建立的班級後，活動會出現在這裡。"
-          ctaTitle="加入班級"
-          onCtaPress={() => router.push('/(app)/territory/join')}
-        />
+        isTeacher ? (
+          <EmptyState title="還沒有活動" body="在教師後台建立班級並發布活動後，活動會出現在這裡。" />
+        ) : (
+          <EmptyState
+            title="還沒有活動"
+            body="加入老師建立的班級後，活動會出現在這裡。"
+            ctaTitle="加入班級"
+            onCtaPress={() => router.push('/(app)/territory/join')}
+          />
+        )
       ) : (
         <View style={{ gap: space[2] }}>
           {state.data.map((a) => (
