@@ -19,7 +19,7 @@ export default function AppLayout() {
       tabBarLabelStyle: { fontSize: 10, letterSpacing: 0.05 },
     }}>
       <Tabs.Screen name="home/index" options={{ title: 'Home', tabBarIcon: ({ color: c }) => <Feather name="home" size={20} color={c} /> }} />
-      <Tabs.Screen name="roadmap/index" options={{ title: 'Roadmap', tabBarIcon: ({ color: c }) => <Feather name="map" size={20} color={c} /> }} />
+      <Tabs.Screen name="roadmap" options={{ title: 'Roadmap', tabBarIcon: ({ color: c }) => <Feather name="map" size={20} color={c} /> }} />
       <Tabs.Screen name="territory/index" options={{ title: 'Territory', tabBarIcon: ({ color: c }) => <Feather name="hexagon" size={20} color={c} /> }} />
       <Tabs.Screen name="me/index" options={{ title: 'Me', tabBarIcon: ({ color: c }) => <Feather name="user" size={20} color={c} /> }} />
     </Tabs>
