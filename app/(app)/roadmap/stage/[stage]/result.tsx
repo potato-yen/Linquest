@@ -1,11 +1,8 @@
 // app/(app)/roadmap/stage/[stage]/result.tsx
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ScreenScaffold, Text, Button, Card } from '../../../../../lib/ui/components';
-import { useSession } from '../../../../../lib/ui/session/useSession';
-import { getSupabaseClient } from '../../../../../lib/supabase';
-import { upsertProgress } from '../../../../../lib/roadmap/service';
 import { shouldUnlock } from '../../../../../lib/roadmap/unlock';
 import { Attempt } from '../../../../../lib/answering/types';
 import { color, space } from '../../../../../lib/ui/tokens';
@@ -18,19 +15,8 @@ export default function StageResult() {
   const accuracy = firstRound.length > 0 ? correct / firstRound.length : 0;
   const unlocked = shouldUnlock(correct, firstRound.length);
 
-  const s = useSession();
-  const sb = getSupabaseClient();
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      if (!unlocked || s.status !== 'auth') return;
-      try {
-        setBusy(true);
-        await upsertProgress(sb, s.user.id, stageNum + 1);
-      } finally { setBusy(false); }
-    })();
-  }, [unlocked, s, sb, stageNum]);
+  // Progress is saved by [stage].tsx onFinish before navigation; this page is
+  // purely presentational.
 
   return (
     <ScreenScaffold scroll>
@@ -49,7 +35,6 @@ export default function StageResult() {
       )}
       <View style={{ gap: space[2] }}>
         <Button title={unlocked ? `進入 Stage ${stageNum + 1}` : '重打本關'}
-                loading={busy}
                 onPress={() => router.replace(`/(app)/roadmap/stage/${unlocked ? stageNum + 1 : stageNum}`)} />
         <Button title="返回山徑" variant="ghost" onPress={() => router.replace('/(app)/roadmap')} />
       </View>

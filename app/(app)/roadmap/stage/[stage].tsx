@@ -9,16 +9,20 @@ import { QuestionCard } from '../../../../lib/ui/components/QuestionCard';
 import { FlashCard } from '../../../../lib/ui/components/FlashCard';
 import { useSession } from '../../../../lib/ui/session/useSession';
 import { useScreenData } from '../../../../lib/ui/hooks/useScreenData';
-import { selectStageQuestions } from '../../../../lib/roadmap/service';
+import { selectStageQuestions, upsertProgress } from '../../../../lib/roadmap/service';
 import { AnsweringEngine } from '../../../../lib/answering/engine';
 import { Question } from '../../../../lib/answering/types';
 import { makeRoadmapHostHooks } from '../../../../lib/answering/adapters/roadmap';
+import { shouldUnlock } from '../../../../lib/roadmap/unlock';
+import { getSupabaseClient } from '../../../../lib/supabase';
 import { space } from '../../../../lib/ui/tokens';
 
 export default function StageScreen() {
   const { stage } = useLocalSearchParams<{ stage: string }>();
   const stageNum = Number(stage);
   const s = useSession();
+  const sb = getSupabaseClient();
+  const userId = s.status === 'auth' ? s.user.id : null;
 
   const { state, refresh } = useScreenData(async () => {
     if (s.status !== 'auth') return null;
@@ -45,13 +49,18 @@ export default function StageScreen() {
     }));
   }, [eState.current?.id]);
 
-  // Use primitive deps (state.status, s.status) so this effect doesn't re-run
-  // on every setTick. Using full object deps (state, s) would cause abort()
-  // cleanup → notify() → setTick → re-render → cleanup again → infinite loop.
+  // Primitive deps only — see previous commit for the abort() → notify() loop explanation.
   useEffect(() => {
-    if (state.status !== 'ready' || s.status !== 'auth') return;
+    if (state.status !== 'ready' || !userId) return;
     const hooks = makeRoadmapHostHooks({
       onFinish: (sum) => {
+        // Save progress before navigating; fire-and-forget so navigation isn't blocked.
+        const correct = sum.firstRoundResults.filter((a) => a.is_correct).length;
+        if (shouldUnlock(correct, sum.firstRoundResults.length)) {
+          upsertProgress(sb, userId, stageNum + 1).catch((e) =>
+            console.error('[roadmap] upsertProgress failed:', e),
+          );
+        }
         router.replace({
           pathname: `/(app)/roadmap/stage/${stageNum}/result`,
           params: { fr: JSON.stringify(sum.firstRoundResults) },
@@ -60,7 +69,7 @@ export default function StageScreen() {
     });
     engine.start({ questions: state.data.questions, ...hooks });
     return () => engine.abort();
-  }, [state.status, s.status, engine, stageNum]);
+  }, [state.status, userId, engine, stageNum]);
 
   if (state.status === 'loading') return <ScreenScaffold><Skeleton height={400} /></ScreenScaffold>;
   if (state.status === 'error')   return <ScreenScaffold><ErrorState error={state.error} onRetry={refresh} /></ScreenScaffold>;

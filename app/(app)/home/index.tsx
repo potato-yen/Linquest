@@ -1,6 +1,7 @@
 // app/(app)/home/index.tsx
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import { View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { ScreenScaffold, Text, Skeleton, ErrorState } from '../../../lib/ui/components';
 import { TodayTaskCard, RoadmapProgressCard, BattleStatusPlaceholderCard } from '../../../lib/ui/composites/HomeCards';
 import { useSession } from '../../../lib/ui/session/useSession';
@@ -24,6 +25,13 @@ export default function Home() {
     const levelProgress = level ? (cur - level.stage_start) / Math.max(1, (level.stage_end - level.stage_start + 1)) : 0;
     return { stageLabel: `Roadmap Stage ${cur}`, levelLabel, levelProgress };
   }, [s.status === 'auth' ? s.user.id : null]);
+
+  // Re-fetch on focus so home progress card reflects the latest DB state.
+  const mounted = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (!mounted.current) { mounted.current = true; return; }
+    refresh();
+  }, [refresh]));
 
   if (s.status !== 'auth') return null;
   const name = s.user.display_name ?? s.user.email;

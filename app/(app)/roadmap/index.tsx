@@ -1,7 +1,7 @@
 // app/(app)/roadmap/index.tsx
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { ScrollView, useWindowDimensions } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { ScreenScaffold, Text, Skeleton, ErrorState, Button } from '../../../lib/ui/components';
 import { RoadmapTrail } from '../../../lib/ui/components/RoadmapTrail';
 import { useScreenData } from '../../../lib/ui/hooks/useScreenData';
@@ -24,6 +24,13 @@ export default function RoadmapScreen() {
     const lastStage = bank.config.levels.reduce((m, l) => Math.max(m, l.stage_end), 1);
     return { bankId: bank.id, currentStage: progress?.current_stage ?? 1, lastStage };
   }, [s.status === 'auth' ? s.user.id : null]);
+
+  // Re-fetch whenever the tab comes back into focus so progress reflects DB truth.
+  const mounted = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (!mounted.current) { mounted.current = true; return; } // skip first focus (useScreenData already loads)
+    refresh();
+  }, [refresh]));
 
   // Scroll to the current stage once data is available.
   useEffect(() => {
