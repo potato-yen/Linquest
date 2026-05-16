@@ -32,6 +32,22 @@ export default function StageScreen() {
   const [, setTick] = useState(0);
   useEffect(() => engine.subscribe(() => setTick((t) => t + 1)), [engine]);
 
+  const eState = engine.state;
+
+  // Shuffle once per question; keep the same order through answer → reveal so
+  // choices don't reorder on every setTick re-render.
+  const choices = useMemo<{ pick: 'A' | 'B' | 'C' | 'D'; choice: string }[]>(() => {
+    const q = eState.current;
+    if (!q) return [];
+    return shuffle([q.correct_answer, ...q.distractors]).map((c, i) => ({
+      pick: 'ABCD'[i] as 'A' | 'B' | 'C' | 'D',
+      choice: c,
+    }));
+  }, [eState.current?.id]);
+
+  // Use primitive deps (state.status, s.status) so this effect doesn't re-run
+  // on every setTick. Using full object deps (state, s) would cause abort()
+  // cleanup → notify() → setTick → re-render → cleanup again → infinite loop.
   useEffect(() => {
     if (state.status !== 'ready' || s.status !== 'auth') return;
     const hooks = makeRoadmapHostHooks({
@@ -44,22 +60,19 @@ export default function StageScreen() {
     });
     engine.start({ questions: state.data.questions, ...hooks });
     return () => engine.abort();
-  }, [state, s, engine, stageNum]);
+  }, [state.status, s.status, engine, stageNum]);
 
   if (state.status === 'loading') return <ScreenScaffold><Skeleton height={400} /></ScreenScaffold>;
   if (state.status === 'error')   return <ScreenScaffold><ErrorState error={state.error} onRetry={refresh} /></ScreenScaffold>;
   if (state.status === 'empty')   return <ScreenScaffold><Text>沒有題目</Text></ScreenScaffold>;
 
-  const eState = engine.state;
   if (!eState.current && eState.phase !== 'reveal') {
     return <ScreenScaffold><Skeleton height={300} /></ScreenScaffold>;
   }
 
-  const q = (eState.current ?? eState.lastAttempt) ? eState.current ?? state.data.questions.find((x) => x.id === eState.lastAttempt!.question_id)! : null;
-  const choices: { pick: 'A' | 'B' | 'C' | 'D'; choice: string }[] = q
-    ? shuffle([q.correct_answer, ...q.distractors]).map((c, i) => ({ pick: 'ABCD'[i] as any, choice: c }))
-    : [];
-
+  const q = (eState.current ?? eState.lastAttempt)
+    ? eState.current ?? state.data.questions.find((x) => x.id === eState.lastAttempt!.question_id)!
+    : null;
   const lastChosen = eState.lastAttempt?.chosen;
 
   return (
@@ -93,8 +106,6 @@ export default function StageScreen() {
   );
 }
 
-// Local shuffle (deterministic per question by sorting the unshuffled array's index would be better
-// but for v1 visual variation, Math.random is acceptable; the per-question record is what counts).
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
