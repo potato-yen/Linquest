@@ -1,23 +1,16 @@
 // lib/answering/adapters/roadmap.ts
-import { Attempt, EngineHostHooks } from '../types';
+import { EngineHostHooks } from '../types';
 
-interface SubmitAttemptFn {
-  (args: { userId: string; questionId: string; isCorrect: boolean; responseMs: number }): Promise<void>;
-}
-
+// v1: wrong-answer history is NOT persisted. The AnsweringEngine's in-memory
+// retry queue is the only retry mechanism. onAttempt is intentionally a no-op
+// (kept on the interface so the engine contract is unchanged; v2 SRS will
+// route attempts here).
 export function makeRoadmapHostHooks(opts: {
-  userId: string;
-  submitAttempt: SubmitAttemptFn;
   onFinish: EngineHostHooks['onFinish'];
 }): EngineHostHooks {
   return {
     enableRetry: true,
-    onAttempt: async (a: Attempt) => {
-      await opts.submitAttempt({
-        userId: opts.userId, questionId: a.question_id,
-        isCorrect: a.is_correct, responseMs: a.response_ms,
-      });
-    },
+    onAttempt: async () => {},
     onFinish: opts.onFinish,
   };
 }

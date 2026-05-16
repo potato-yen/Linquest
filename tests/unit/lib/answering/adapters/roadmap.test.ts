@@ -2,21 +2,23 @@
 import { makeRoadmapHostHooks } from '../../../../../lib/answering/adapters/roadmap';
 
 describe('makeRoadmapHostHooks', () => {
-  it('returns enableRetry=true and routes onAttempt to submitAttempt', async () => {
-    const submitAttempt = jest.fn().mockResolvedValue(undefined);
+  it('returns enableRetry=true and onAttempt is a no-op that resolves', async () => {
     const onFinish = jest.fn();
-    const hooks = makeRoadmapHostHooks({ userId: 'u1', submitAttempt, onFinish });
+    const hooks = makeRoadmapHostHooks({ onFinish });
     expect(hooks.enableRetry).toBe(true);
-
-    await hooks.onAttempt({ question_id: 'q1', is_correct: true, response_ms: 250, chosen: 'a' });
-    expect(submitAttempt).toHaveBeenCalledWith({
-      userId: 'u1', questionId: 'q1', isCorrect: true, responseMs: 250,
-    });
+    await expect(
+      hooks.onAttempt({
+        question_id: 'q1',
+        is_correct: true,
+        response_ms: 250,
+        chosen: 'a',
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it('passes onFinish through unchanged', () => {
     const onFinish = jest.fn();
-    const hooks = makeRoadmapHostHooks({ userId: 'u1', submitAttempt: jest.fn(), onFinish });
+    const hooks = makeRoadmapHostHooks({ onFinish });
     hooks.onFinish({ firstRoundResults: [], totalAttempts: [] });
     expect(onFinish).toHaveBeenCalled();
   });
