@@ -1,181 +1,87 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { pickLevelForStage, validateRoadmapConfig } from './level-mapping';
+import { pickLevelForStage } from './level-mapping';
+import { ROADMAP_BANK_ID, ROADMAP_CONFIG } from './roadmap-config';
+import { loadSheetBank, sampleDistractors } from './sheet-source';
 import { shuffle } from './shuffle';
 import {
   ROADMAP_STAGE_QUESTION_COUNT,
   RoadmapConfig,
   RoadmapProgress,
   StageQuestion,
-  SubmitAttemptInput,
 } from './types';
 
-interface QuestionBankRow {
-  id: string;
-  name: string;
-  source: string;
-  language: string;
-  created_at: string;
-  roadmap_config: RoadmapConfig | null;
+const DISTRACTOR_COUNT = 3;
+
+/** The roadmap "bank" is now a code constant; the DB row only anchors the FK. */
+export function getRoadmapBank(): { id: string; config: RoadmapConfig } {
+  return { id: ROADMAP_BANK_ID, config: ROADMAP_CONFIG };
 }
 
 export async function getProgress(
   sb: SupabaseClient,
   userId: string,
-  bankId: string,
 ): Promise<RoadmapProgress | null> {
   const { data, error } = await sb
     .from('roadmap_progress')
     .select('user_id, bank_id, current_stage, updated_at')
     .eq('user_id', userId)
-    .eq('bank_id', bankId)
+    .eq('bank_id', ROADMAP_BANK_ID)
     .maybeSingle();
 
-  if (error) {
-    throw error;
-  }
-
-  if (data) {
-    return data as RoadmapProgress;
-  }
-
-  return null;
+  if (error) throw error;
+  return data ? (data as RoadmapProgress) : null;
 }
 
 /**
- * Upsert progress to currentStage. The returned row reflects DB trigger state:
- * roadmap_progress_no_regress silently keeps the larger of existing/requested
- * current_stage, so a caller may receive a larger value than it requested.
+ * Upsert progress to currentStage. The DB trigger roadmap_progress_no_regress
+ * keeps the larger of existing/requested current_stage, so the returned row
+ * may be larger than requested.
  */
 export async function upsertProgress(
   sb: SupabaseClient,
   userId: string,
-  bankId: string,
   currentStage: number,
 ): Promise<RoadmapProgress> {
   if (!Number.isInteger(currentStage) || currentStage < 1) {
-    throw new Error(`upsertProgress: currentStage must be a positive integer, got ${currentStage}`);
+    throw new Error(
+      `upsertProgress: currentStage must be a positive integer, got ${currentStage}`,
+    );
   }
 
   const { data, error } = await sb
     .from('roadmap_progress')
     .upsert(
-      { user_id: userId, bank_id: bankId, current_stage: currentStage },
+      { user_id: userId, bank_id: ROADMAP_BANK_ID, current_stage: currentStage },
       { onConflict: 'user_id,bank_id' },
     )
     .select('user_id, bank_id, current_stage, updated_at')
     .single();
 
-  if (error) {
-    throw error;
-  }
-
+  if (error) throw error;
   return data as RoadmapProgress;
 }
 
-export async function getBankWithConfig(
-  sb: SupabaseClient,
-  bankId: string,
-): Promise<{ bank: QuestionBankRow; config: RoadmapConfig | null }> {
-  const { data, error } = await sb
-    .from('question_banks')
-    .select('id, name, source, language, created_at, roadmap_config')
-    .eq('id', bankId)
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  const row = data as QuestionBankRow;
-  if (row.roadmap_config) {
-    validateRoadmapConfig(row.roadmap_config);
-  }
-
-  return { bank: row, config: row.roadmap_config };
-}
-
-export async function getDefaultRoadmapBank(
-  sb: SupabaseClient,
-): Promise<QuestionBankRow> {
-  const { data, error } = await sb
-    .from('question_banks')
-    .select('id, name, source, language, created_at, roadmap_config')
-    .eq('source', 'official')
-    .not('roadmap_config', 'is', null)
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  if (!data) {
-    throw new Error('No roadmap-enabled official question bank found');
-  }
-
-  const row = data as QuestionBankRow;
-  if (!row.roadmap_config) {
-    throw new Error('Default roadmap bank has no roadmap_config');
-  }
-  validateRoadmapConfig(row.roadmap_config);
-  return row;
-}
-
 export async function selectStageQuestions(
-  sb: SupabaseClient,
-  bankId: string,
   stage: number,
   count: number = ROADMAP_STAGE_QUESTION_COUNT,
   rng: () => number = Math.random,
-  config?: RoadmapConfig,
 ): Promise<StageQuestion[]> {
-  const resolvedConfig = config ?? (await getBankWithConfig(sb, bankId)).config;
-  if (!resolvedConfig) {
-    throw new Error(`Bank ${bankId} has no roadmap_config`);
-  }
-
-  const level = pickLevelForStage(stage, resolvedConfig);
+  const level = pickLevelForStage(stage, ROADMAP_CONFIG);
   if (level === null) {
     throw new Error(
       `selectStageQuestions: stage ${stage} exceeds final range; caller should check pickLevelForStage first`,
     );
   }
 
-  const { data, error } = await sb
-    .from('questions')
-    .select('id, prompt, correct_answer, distractors, meta')
-    .eq('bank_id', bankId)
-    .filter('meta->>roadmap_level', 'eq', String(level));
-
-  if (error) {
-    throw error;
+  const bank = await loadSheetBank();
+  const pool = bank[level] ?? [];
+  if (pool.length === 0) {
+    throw new Error(`selectStageQuestions: no questions for level ${level}`);
   }
 
-  const pool = (data ?? []) as StageQuestion[];
-  return shuffle(pool, rng).slice(0, count);
-}
-
-export async function submitAttempt(
-  sb: SupabaseClient,
-  args: SubmitAttemptInput,
-): Promise<void> {
-  if (!Number.isInteger(args.responseMs) || args.responseMs < 0) {
-    throw new Error(`submitAttempt: responseMs must be a non-negative integer, got ${args.responseMs}`);
-  }
-
-  const { error } = await sb.from('attempts').insert({
-    user_id: args.userId,
-    question_id: args.questionId,
-    activity_id: null,
-    context: 'roadmap',
-    tile_id: null,
-    battle_id: null,
-    is_correct: args.isCorrect,
-    response_ms: args.responseMs,
-  });
-
-  if (error) {
-    throw error;
-  }
+  const picked = shuffle(pool, rng).slice(0, count);
+  return picked.map((q) => ({
+    ...q,
+    distractors: sampleDistractors(pool, q.correct_answer, DISTRACTOR_COUNT, rng),
+  }));
 }
