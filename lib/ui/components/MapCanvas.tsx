@@ -1,12 +1,14 @@
-import React, { useMemo } from 'react';
-import { View, Image } from 'react-native';
-import Svg from 'react-native-svg';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
+import { View, Image, Animated } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { HexTile } from './HexTile';
-import { axialToPixel } from '../../territory-ui/map-projection';
+import { axialToPixel, HEX_SIZE } from '../../territory-ui/map-projection';
 import { computeTileRender } from '../../territory-ui/tile-state';
 import { color } from '../tokens';
 import type { HexTile as HexTileRow } from '../../territory/types';
 import { illustrations } from '../illustrations';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 export interface MapCanvasProps {
   tiles: HexTileRow[];
@@ -15,6 +17,13 @@ export interface MapCanvasProps {
   width: number;
   height: number;
   onTilePress?: (tileId: string) => void;
+}
+
+interface Ripple {
+  key: number;
+  cx: number;
+  cy: number;
+  anim: Animated.Value;
 }
 
 export function MapCanvas({ tiles, groups, myGroupId, width, height, onTilePress }: MapCanvasProps) {
@@ -31,6 +40,37 @@ export function MapCanvas({ tiles, groups, myGroupId, width, height, onTilePress
   const vbH = (maxY - minY) + padding * 2;
   const offsetX = padding - minX;
   const offsetY = padding - minY;
+
+  const prevSelfIds = useRef<Set<string>>(new Set());
+  const [ripples, setRipples] = useState<Ripple[]>([]);
+  const rippleKeyRef = useRef(0);
+
+  useEffect(() => {
+    const nowSelfIds = new Set(
+      tiles.filter((t) => t.owner_group_id === myGroupId).map((t) => t.id)
+    );
+
+    const newSelf = tiles
+      .filter((t) => t.owner_group_id === myGroupId && !prevSelfIds.current.has(t.id))
+      .map((t) => {
+        const p = axialToPixel(t.q, t.r);
+        const allP = tiles.map((tt) => axialToPixel(tt.q, tt.r));
+        const mX = Math.min(...allP.map((pp) => pp.x), 0);
+        const mY = Math.min(...allP.map((pp) => pp.y), 0);
+        const pad = 30;
+        const ox = pad - mX;
+        const oy = pad - mY;
+        const anim = new Animated.Value(0);
+        const key = ++rippleKeyRef.current;
+        Animated.timing(anim, { toValue: 1, duration: 600, useNativeDriver: false }).start(() => {
+          setRipples((rs) => rs.filter((r) => r.key !== key));
+        });
+        return { key, cx: p.x + ox, cy: p.y + oy, anim };
+      });
+
+    if (newSelf.length > 0) setRipples((rs) => [...rs, ...newSelf]);
+    prevSelfIds.current = nowSelfIds;
+  }, [tiles, myGroupId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <View style={{ width, height, backgroundColor: color.bg.muted, borderRadius: 12, overflow: 'hidden' }}>
@@ -51,6 +91,18 @@ export function MapCanvas({ tiles, groups, myGroupId, width, height, onTilePress
             />
           );
         })}
+        {ripples.map((rp) => (
+          <AnimatedCircle
+            key={rp.key}
+            cx={rp.cx}
+            cy={rp.cy}
+            r={rp.anim.interpolate({ inputRange: [0, 1], outputRange: [0, HEX_SIZE] })}
+            stroke="#FAF6EE"
+            strokeWidth={2}
+            fill="none"
+            strokeOpacity={rp.anim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] })}
+          />
+        ))}
       </Svg>
     </View>
   );
