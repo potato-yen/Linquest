@@ -58,7 +58,7 @@ export const type = {
   label: { fontFamily: font.sans, fontSize: 13, lineHeight: 18 },
   caption: { fontFamily: font.sans, fontSize: 11, lineHeight: 14, letterSpacing: 0.88, textTransform: 'uppercase' as const },
   num: { fontFamily: font.monoNum, fontSize: 18, fontVariant: ['tabular-nums' as const] },
-} as const;
+};
 
 export const space = { 0: 0, 1: 4, 2: 8, 3: 12, 4: 16, 5: 24, 6: 32, 7: 48 } as const;
 
