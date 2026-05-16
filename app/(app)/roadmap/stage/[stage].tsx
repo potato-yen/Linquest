@@ -9,8 +9,7 @@ import { QuestionCard } from '../../../../lib/ui/components/QuestionCard';
 import { FlashCard } from '../../../../lib/ui/components/FlashCard';
 import { useSession } from '../../../../lib/ui/session/useSession';
 import { useScreenData } from '../../../../lib/ui/hooks/useScreenData';
-import { getSupabaseClient } from '../../../../lib/supabase';
-import { getDefaultRoadmapBank, selectStageQuestions, submitAttempt } from '../../../../lib/roadmap/service';
+import { selectStageQuestions } from '../../../../lib/roadmap/service';
 import { AnsweringEngine } from '../../../../lib/answering/engine';
 import { Question } from '../../../../lib/answering/types';
 import { makeRoadmapHostHooks } from '../../../../lib/answering/adapters/roadmap';
@@ -20,13 +19,11 @@ export default function StageScreen() {
   const { stage } = useLocalSearchParams<{ stage: string }>();
   const stageNum = Number(stage);
   const s = useSession();
-  const sb = getSupabaseClient();
 
   const { state, refresh } = useScreenData(async () => {
     if (s.status !== 'auth') return null;
-    const bank = await getDefaultRoadmapBank(sb);
-    const qs = await selectStageQuestions(sb, bank.id, stageNum);
-    return { bankId: bank.id, questions: qs.map((q) => ({
+    const qs = await selectStageQuestions(stageNum);
+    return { questions: qs.map((q) => ({
       id: q.id, prompt: q.prompt, correct_answer: q.correct_answer, distractors: q.distractors, meta: q.meta,
     } as Question)) };
   }, [stageNum]);
@@ -38,8 +35,6 @@ export default function StageScreen() {
   useEffect(() => {
     if (state.status !== 'ready' || s.status !== 'auth') return;
     const hooks = makeRoadmapHostHooks({
-      userId: s.user.id,
-      submitAttempt: (a) => submitAttempt(sb, a),
       onFinish: (sum) => {
         router.replace({
           pathname: `/(app)/roadmap/stage/${stageNum}/result`,
@@ -49,7 +44,7 @@ export default function StageScreen() {
     });
     engine.start({ questions: state.data.questions, ...hooks });
     return () => engine.abort();
-  }, [state, s, engine, sb, stageNum]);
+  }, [state, s, engine, stageNum]);
 
   if (state.status === 'loading') return <ScreenScaffold><Skeleton height={400} /></ScreenScaffold>;
   if (state.status === 'error')   return <ScreenScaffold><ErrorState error={state.error} onRetry={refresh} /></ScreenScaffold>;

@@ -5,7 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ScreenScaffold, Text, Button, Card } from '../../../../../lib/ui/components';
 import { useSession } from '../../../../../lib/ui/session/useSession';
 import { getSupabaseClient } from '../../../../../lib/supabase';
-import { getDefaultRoadmapBank, upsertProgress } from '../../../../../lib/roadmap/service';
+import { upsertProgress } from '../../../../../lib/roadmap/service';
 import { shouldUnlock } from '../../../../../lib/roadmap/unlock';
 import { Attempt } from '../../../../../lib/answering/types';
 import { color, space } from '../../../../../lib/ui/tokens';
@@ -27,8 +27,7 @@ export default function StageResult() {
       if (!unlocked || s.status !== 'auth') return;
       try {
         setBusy(true);
-        const bank = await getDefaultRoadmapBank(sb);
-        await upsertProgress(sb, s.user.id, bank.id, stageNum + 1);
+        await upsertProgress(sb, s.user.id, stageNum + 1);
       } finally { setBusy(false); }
     })();
   }, [unlocked, s, sb, stageNum]);

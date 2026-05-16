@@ -7,7 +7,7 @@ import { RoadmapTrail } from '../../../lib/ui/components/RoadmapTrail';
 import { useScreenData } from '../../../lib/ui/hooks/useScreenData';
 import { useSession } from '../../../lib/ui/session/useSession';
 import { getSupabaseClient } from '../../../lib/supabase';
-import { getDefaultRoadmapBank, getProgress } from '../../../lib/roadmap/service';
+import { getRoadmapBank, getProgress } from '../../../lib/roadmap/service';
 import { space } from '../../../lib/ui/tokens';
 
 export default function RoadmapScreen() {
@@ -17,10 +17,9 @@ export default function RoadmapScreen() {
 
   const { state, refresh } = useScreenData(async () => {
     if (s.status !== 'auth') return null;
-    const bank = await getDefaultRoadmapBank(sb);
-    const progress = await getProgress(sb, s.user.id, bank.id);
-    const config = bank.roadmap_config!;
-    const lastStage = config.levels.reduce((m, l) => Math.max(m, l.stage_end), 1);
+    const bank = getRoadmapBank();
+    const progress = await getProgress(sb, s.user.id);
+    const lastStage = bank.config.levels.reduce((m, l) => Math.max(m, l.stage_end), 1);
     return { bankId: bank.id, currentStage: progress?.current_stage ?? 1, lastStage };
   }, [s.status === 'auth' ? s.user.id : null]);
 

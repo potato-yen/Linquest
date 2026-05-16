@@ -6,7 +6,7 @@ import { TodayTaskCard, RoadmapProgressCard, BattleStatusPlaceholderCard } from 
 import { useSession } from '../../../lib/ui/session/useSession';
 import { useScreenData } from '../../../lib/ui/hooks/useScreenData';
 import { getSupabaseClient } from '../../../lib/supabase';
-import { getDefaultRoadmapBank, getProgress } from '../../../lib/roadmap/service';
+import { getRoadmapBank, getProgress } from '../../../lib/roadmap/service';
 import { space } from '../../../lib/ui/tokens';
 
 export default function Home() {
@@ -15,9 +15,9 @@ export default function Home() {
 
   const { state, refresh } = useScreenData(async () => {
     if (s.status !== 'auth') return null;
-    const bank = await getDefaultRoadmapBank(sb);
-    const progress = await getProgress(sb, s.user.id, bank.id);
-    const config = bank.roadmap_config!;
+    const bank = getRoadmapBank();
+    const progress = await getProgress(sb, s.user.id);
+    const config = bank.config;
     const cur = progress?.current_stage ?? 1;
     const level = config.levels.find((l) => cur >= l.stage_start && cur <= l.stage_end);
     const levelLabel = level ? `Level ${level.level} (Stage ${level.stage_start}-${level.stage_end})` : `Stage ${cur}`;
