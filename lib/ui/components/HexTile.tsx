@@ -15,10 +15,10 @@ export interface HexTileProps {
 export function HexTile({ cx, cy, render: r, groupColor, onPress }: HexTileProps) {
   const verts = hexVertices(cx, cy);
 
-  let fill = tileTok.neutral.fill;
-  let alpha = tileTok.neutral.alpha;
-  let stroke = tileTok.neutral.stroke;
-  let strokeW = tileTok.neutral.strokeW;
+  let fill: string = tileTok.neutral.fill;
+  let alpha: number = tileTok.neutral.alpha;
+  let stroke: string = tileTok.neutral.stroke;
+  let strokeW: number = tileTok.neutral.strokeW;
   let strokeDash: string | undefined = tileTok.neutral.dashed ? '2 2' : undefined;
 
   if (r.ownership === 'self' && groupColor) {
