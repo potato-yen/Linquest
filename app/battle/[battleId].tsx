@@ -14,6 +14,7 @@ import { BattleRow } from '../../lib/realtime-battle/types';
 import { AnsweringEngine } from '../../lib/answering/engine';
 import { Question } from '../../lib/answering/types';
 import { makeBattleHostHooks } from '../../lib/answering/adapters/battle';
+import { needsSampledDistractors, sampleDistractors } from '../../lib/answering/sample-distractors';
 import { mapError } from '../../lib/ui/error/mapError';
 import { space } from '../../lib/ui/tokens';
 
@@ -61,7 +62,40 @@ export default function BattleModal() {
         if (qErr) throw qErr;
         // Preserve question order matching question_ids
         const qMap = new Map((qs ?? []).map((q: Question) => [q.id, q]));
-        setQuestions(ids.map((id) => qMap.get(id)).filter(Boolean) as Question[]);
+        const ordered = ids.map((id) => qMap.get(id)).filter(Boolean) as Question[];
+
+        // Custom-bank questions have placeholder distractors + 詞性 in
+        // meta. Sample distractors from the whole bank's answers and
+        // compose the prompt as 中文（詞性）.
+        let answerPool: string[] = [];
+        if (ordered.some((q) => needsSampledDistractors(q.distractors))) {
+          const { data: act } = await sb
+            .from('activities')
+            .select('question_bank_id')
+            .eq('id', (br as BattleRow).activity_id)
+            .single();
+          const bankId = (act as { question_bank_id?: string } | null)?.question_bank_id;
+          if (bankId) {
+            const { data: bankQs } = await sb
+              .from('questions')
+              .select('correct_answer')
+              .eq('bank_id', bankId);
+            answerPool = (bankQs ?? []).map((q: { correct_answer: string }) => q.correct_answer);
+          }
+        }
+
+        setQuestions(
+          ordered.map((q) => {
+            const pos = (q.meta as { part_of_speech?: string } | undefined)?.part_of_speech;
+            return {
+              ...q,
+              prompt: pos ? `${q.prompt}（${pos}）` : q.prompt,
+              distractors: needsSampledDistractors(q.distractors)
+                ? sampleDistractors(answerPool, q.correct_answer)
+                : q.distractors,
+            };
+          }),
+        );
       } catch (e) {
         setError(mapError(e).message);
       }

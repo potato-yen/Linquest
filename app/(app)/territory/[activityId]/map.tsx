@@ -20,6 +20,7 @@ import { sendBattleInvite } from '../../../../lib/realtime-battle/service';
 import { AnsweringEngine } from '../../../../lib/answering/engine';
 import type { Question } from '../../../../lib/answering/types';
 import { makeTerritoryHostHooks } from '../../../../lib/answering/adapters/territory';
+import { needsSampledDistractors, sampleDistractors } from '../../../../lib/answering/sample-distractors';
 import { space, color } from '../../../../lib/ui/tokens';
 
 const POLL_MAP_MS = 10_000;
@@ -135,17 +136,41 @@ export default function MapScreen() {
       const bankId = (act as any)?.question_bank_id;
       if (!bankId) throw new Error('activity has no question_bank_id');
 
+      // Fetch the whole bank (no difficulty filter at the query level):
+      // custom banks store difficulty='standard' for every row, so an
+      // 'advanced' challenge spec would otherwise match zero questions.
       const { data: pool } = await sb
         .from('questions')
         .select('id, prompt, correct_answer, distractors, meta')
-        .eq('bank_id', bankId)
-        .filter('meta->>difficulty', 'eq', spec.difficulty);
+        .eq('bank_id', bankId);
 
-      const allPool = (pool ?? []) as Question[];
-      const picked = shuffle(allPool).slice(0, spec.question_count);
-      const questions: Question[] = picked.length >= spec.question_count
+      const fullPool = (pool ?? []) as Question[];
+      // Prefer the difficulty-matched subset (official banks rely on it);
+      // fall back to the full pool when it can't satisfy the count.
+      const byDifficulty = fullPool.filter(
+        (q) => (q.meta as { difficulty?: string } | undefined)?.difficulty === spec.difficulty,
+      );
+      const sourcePool =
+        byDifficulty.length >= spec.question_count ? byDifficulty : fullPool;
+      const answerPool = fullPool.map((q) => q.correct_answer);
+
+      const picked = shuffle(sourcePool).slice(0, spec.question_count);
+      const base: Question[] = picked.length >= spec.question_count
         ? picked
-        : allPool.slice(0, spec.question_count);
+        : sourcePool.slice(0, spec.question_count);
+
+      // Custom-bank questions carry placeholder distractors + a 詞性 in
+      // meta — sample real distractors and compose the prompt as 中文（詞性）.
+      const questions: Question[] = base.map((q) => {
+        const pos = (q.meta as { part_of_speech?: string } | undefined)?.part_of_speech;
+        return {
+          ...q,
+          prompt: pos ? `${q.prompt}（${pos}）` : q.prompt,
+          distractors: needsSampledDistractors(q.distractors)
+            ? sampleDistractors(answerPool, q.correct_answer)
+            : q.distractors,
+        };
+      });
 
       sheetRef.current?.close();
       setAnswering(true);
