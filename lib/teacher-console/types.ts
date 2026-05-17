@@ -128,3 +128,21 @@ export interface TeacherConsoleActivitySettings {
 export interface PublishActivityContext {
   settings: TeacherConsoleActivitySettings;
 }
+
+export interface CustomBankRow {
+  prompt: string;
+  correct_answer: string;
+  distractors: [string, string, string];
+  meta: { difficulty: 'standard' | 'advanced' };
+}
+
+export interface CreateActivityWithCustomBankInput {
+  class_id: string;
+  name: string;
+  ends_at: string;
+  group_count: number;
+  map_size_target: number;
+  refresh_interval_hours: 6 | 8 | 12 | 24;
+  bank_name: string;
+  rows: CustomBankRow[];
+}

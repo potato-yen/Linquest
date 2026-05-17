@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Class } from './types';
+import { Class, ClassRosterRow } from './types';
 
 const CLASS_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -140,4 +140,15 @@ export async function listMyClasses(sb: SupabaseClient): Promise<Class[]> {
   }
 
   return Array.from(classes.values());
+}
+
+export async function listClassRoster(
+  sb: SupabaseClient,
+  classId: string,
+): Promise<ClassRosterRow[]> {
+  const { data, error } = await sb.rpc('list_class_roster', { p_class_id: classId });
+  if (error) {
+    throw new Error(error.message);
+  }
+  return (data ?? []) as ClassRosterRow[];
 }

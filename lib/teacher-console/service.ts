@@ -5,6 +5,7 @@ import { TerritoryParams } from '../territory/types';
 import { parseTeacherConsoleRpcCode, TeacherConsoleError } from './errors';
 import {
   ActivityDraftInput,
+  CreateActivityWithCustomBankInput,
   PublishActivityContext,
   PublishGroupRow,
   TeacherConsoleAccuracy,
@@ -256,4 +257,34 @@ function toRefreshInterval(value: unknown): 6 | 8 | 12 | 24 {
   }
 
   return 12;
+}
+
+export async function createActivityWithCustomBank(
+  sb: SupabaseClient,
+  input: CreateActivityWithCustomBankInput,
+): Promise<string> {
+  const { data, error } = await sb.rpc('create_activity_with_custom_bank', {
+    p_class_id: input.class_id,
+    p_name: input.name,
+    p_ends_at: input.ends_at,
+    p_group_count: input.group_count,
+    p_map_size_target: input.map_size_target,
+    p_refresh_interval_hours: input.refresh_interval_hours,
+    p_bank_name: input.bank_name,
+    p_rows: input.rows,
+  });
+  if (error) {
+    throw new TeacherConsoleError(parseTeacherConsoleRpcCode(error.message), error.message, error);
+  }
+  return data as string;
+}
+
+export async function deleteActivity(
+  sb: SupabaseClient,
+  activityId: string,
+): Promise<void> {
+  const { error } = await sb.rpc('delete_activity', { p_activity_id: activityId });
+  if (error) {
+    throw new TeacherConsoleError(parseTeacherConsoleRpcCode(error.message), error.message, error);
+  }
 }

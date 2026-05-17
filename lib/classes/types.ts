@@ -11,3 +11,9 @@ export interface ClassMember {
   user_id: string;
   joined_at: string;
 }
+
+export interface ClassRosterRow {
+  user_id: string;
+  display_name: string | null;
+  joined_at: string;
+}
