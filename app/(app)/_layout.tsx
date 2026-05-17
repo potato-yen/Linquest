@@ -18,7 +18,7 @@ export default function AppLayout() {
     tabBarStyle: { backgroundColor: color.bg.surface, borderTopColor: color.bg.sunken },
     tabBarActiveTintColor: color.brand.primary,
     tabBarInactiveTintColor: color.text.muted,
-    tabBarLabelStyle: { fontSize: 10, letterSpacing: 0.05 } as any,
+    tabBarLabelStyle: { fontSize: 10, letterSpacing: 0.05 },
   };
 
   if (isTeacher) {
