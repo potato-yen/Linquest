@@ -136,3 +136,57 @@ export async function createPublishedActivity(
   await publishActivity(fixture.teacherSb, activityId);
   return activityId;
 }
+
+export async function seedCustomActivity(
+  fixture: TeacherConsoleFixture,
+  rows?: Array<{
+    prompt: string;
+    correct_answer: string;
+    distractors: [string, string, string];
+    meta?: { difficulty?: 'standard' | 'advanced' };
+  }>,
+): Promise<{ activityId: string; bankId: string }> {
+  const payload =
+    rows ??
+    Array.from({ length: 8 }, (_, index) => ({
+      prompt: `custom-q-${index}`,
+      correct_answer: `ans-${index}`,
+      distractors: [`x-${index}`, `y-${index}`, `z-${index}`] as [string, string, string],
+      meta: { difficulty: (index < 3 ? 'advanced' : 'standard') as 'advanced' | 'standard' },
+    }));
+
+  const { data, error } = await fixture.teacherSb.rpc('create_activity_with_custom_bank', {
+    p_class_id: fixture.classId,
+    p_name: 'Custom Activity',
+    p_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    p_group_count: 3,
+    p_map_size_target: 60,
+    p_refresh_interval_hours: 12,
+    p_bank_name: 'custom-bank',
+    p_rows: payload,
+  });
+  if (error) {
+    throw error;
+  }
+
+  const activityId = data as string;
+  const { data: activity, error: activityError } = await fixture.serviceSb
+    .from('activities')
+    .select('question_bank_id')
+    .eq('id', activityId)
+    .single();
+  if (activityError || !activity) {
+    throw activityError ?? new Error('activity not found after create');
+  }
+
+  return { activityId, bankId: (activity as { question_bank_id: string }).question_bank_id };
+}
+
+export async function signInStudent(
+  fixture: TeacherConsoleFixture,
+  index: number,
+): Promise<SupabaseClient> {
+  const studentSb = makeAnonClient();
+  await signIn(studentSb, fixture.studentCredentials[index]);
+  return studentSb;
+}
