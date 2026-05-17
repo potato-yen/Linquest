@@ -4,6 +4,7 @@ import { Redirect, Tabs } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useSession } from '../../lib/ui/session/useSession';
 import { color } from '../../lib/ui/tokens';
+import { BattleInviteRoot } from '../../lib/ui/composites/BattleInviteRoot';
 
 export default function AppLayout() {
   const session = useSession();
@@ -11,6 +12,7 @@ export default function AppLayout() {
   if (session.status === 'unauth') return <Redirect href="/(auth)/sign-in" />;
 
   return (
+    <>
     <Tabs screenOptions={{
       headerShown: false,
       tabBarStyle: { backgroundColor: color.bg.surface, borderTopColor: color.bg.sunken },
@@ -26,5 +28,7 @@ export default function AppLayout() {
       <Tabs.Screen name="territory/join" options={{ href: null }} />
       <Tabs.Screen name="territory/[activityId]" options={{ href: null }} />
     </Tabs>
+    <BattleInviteRoot />
+    </>
   );
 }
