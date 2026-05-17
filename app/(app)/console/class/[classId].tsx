@@ -9,6 +9,7 @@ import { useScreenData } from '../../../../lib/ui/hooks/useScreenData';
 import { getSupabaseClient } from '../../../../lib/supabase';
 import { listClassRoster, listMyClasses } from '../../../../lib/classes/service';
 import { listMyActivities } from '../../../../lib/teacher-console/service';
+import { RosterTable } from '../../../../lib/ui/composites/RosterTable';
 import { space } from '../../../../lib/ui/tokens';
 
 export default function ClassDetail() {
@@ -60,17 +61,9 @@ export default function ClassDetail() {
         <Text variant="h1" selectable>{classCode}</Text>
       </Card>
 
-      <SectionHeader title={`學生名單（${roster.length}）`} />
-      {roster.length === 0 ? (
-        <EmptyState title="尚無學生" body="把班級代碼分享給學生，他們加入後會出現在這裡。" />
-      ) : (
-        roster.map((r) => (
-          <Card key={r.user_id} style={{ marginTop: space[2] }}>
-            <Text>{r.display_name ?? r.user_id}</Text>
-            <Text color="muted">加入於 {new Date(r.joined_at).toLocaleString()}</Text>
-          </Card>
-        ))
-      )}
+      <View style={{ marginTop: space[3] }}>
+        <RosterTable roster={roster} />
+      </View>
 
       <SectionHeader title="活動" />
       <View style={{ marginTop: space[2] }}>
