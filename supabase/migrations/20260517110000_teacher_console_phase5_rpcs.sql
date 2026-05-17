@@ -1,5 +1,5 @@
 -- Phase 5 teacher console backend: custom-bank read RLS + roster + create/delete activity RPCs.
--- Spec: docs/superpowers/specs/2026-05-17-teacher-console-backend-additions.md
+-- Spec: docs/superpowers/specs/2026-05-17-teacher-console-backend-additions.md ; SPEC.md §0 (2026-05-17).
 
 -- ===== A. RLS: class members can read their activity's custom-bank questions =====
 create or replace function public.auth_uid_can_read_custom_bank(p_bank_id uuid)
@@ -119,8 +119,9 @@ begin
        or v_difficulty not in ('standard', 'advanced')
        or exists (
          select 1
-         from jsonb_array_elements_text(v_row->'distractors') d(value)
-         where coalesce(d.value, '') = ''
+         from jsonb_array_elements(v_row->'distractors') d(value)
+         where jsonb_typeof(d.value) <> 'string'
+            or coalesce(d.value #>> '{}', '') = ''
        ) then
       raise exception 'INVALID_CUSTOM_BANK_ROWS';
     end if;

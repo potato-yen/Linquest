@@ -8,7 +8,7 @@ import {
   listMyActivities,
   publishActivity,
 } from '../../../../lib/teacher-console/service';
-import { TeacherConsoleError } from '../../../../lib/teacher-console/errors';
+import { parseTeacherConsoleRpcCode, TeacherConsoleError } from '../../../../lib/teacher-console/errors';
 import { TEACHER_CONSOLE_DEFAULTS } from '../../../../lib/teacher-console/types';
 import { initializeMap } from '../../../../lib/territory/generator';
 import { runRefreshWave } from '../../../../lib/territory/refresh';
@@ -365,5 +365,10 @@ describe('teacher-console service', () => {
         code: 'NOT_ENOUGH_MEMBERS',
       }),
     );
+  });
+
+  it('maps phase 5 RPC error codes', () => {
+    expect(parseTeacherConsoleRpcCode('INVALID_CUSTOM_BANK_ROWS')).toBe('INVALID_CUSTOM_BANK_ROWS');
+    expect(parseTeacherConsoleRpcCode('ACTIVITY_NOT_FOUND')).toBe('ACTIVITY_NOT_FOUND');
   });
 });

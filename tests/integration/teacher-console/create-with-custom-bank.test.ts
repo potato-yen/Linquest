@@ -76,4 +76,20 @@ describeIntegration('create_activity_with_custom_bank', () => {
 
     expect(error?.message).toContain('INVALID_CUSTOM_BANK_ROWS');
   });
+
+  it('rejects empty rows', async () => {
+    const fixture = await setupTeacherConsoleFixture();
+    const { error } = await fixture.teacherSb.rpc('create_activity_with_custom_bank', {
+      p_class_id: fixture.classId,
+      p_name: 'X',
+      p_ends_at: new Date(Date.now() + 7 * 864e5).toISOString(),
+      p_group_count: 3,
+      p_map_size_target: 60,
+      p_refresh_interval_hours: 12,
+      p_bank_name: 'b',
+      p_rows: [],
+    });
+
+    expect(error?.message).toContain('INVALID_CUSTOM_BANK_ROWS');
+  });
 });
