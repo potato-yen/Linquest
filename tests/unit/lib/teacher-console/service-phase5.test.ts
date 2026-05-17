@@ -13,7 +13,7 @@ const input = {
   map_size_target: 80,
   refresh_interval_hours: 12 as const,
   bank_name: 'b',
-  rows: [{ prompt: 'p', correct_answer: 'a', distractors: ['x', 'y', 'z'] as [string,string,string], meta: { difficulty: 'standard' as const } }],
+  rows: [{ prompt: 'p', correct_answer: 'a', meta: { part_of_speech: 'n.' } }],
 };
 
 describe('createActivityWithCustomBank', () => {

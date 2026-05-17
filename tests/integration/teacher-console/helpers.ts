@@ -142,8 +142,7 @@ export async function seedCustomActivity(
   rows?: Array<{
     prompt: string;
     correct_answer: string;
-    distractors: [string, string, string];
-    meta?: { difficulty?: 'standard' | 'advanced' };
+    meta?: { part_of_speech?: string };
   }>,
 ): Promise<{ activityId: string; bankId: string }> {
   const payload =
@@ -151,8 +150,7 @@ export async function seedCustomActivity(
     Array.from({ length: 8 }, (_, index) => ({
       prompt: `custom-q-${index}`,
       correct_answer: `ans-${index}`,
-      distractors: [`x-${index}`, `y-${index}`, `z-${index}`] as [string, string, string],
-      meta: { difficulty: (index < 3 ? 'advanced' : 'standard') as 'advanced' | 'standard' },
+      meta: { part_of_speech: 'n.' },
     }));
 
   const { data, error } = await fixture.teacherSb.rpc('create_activity_with_custom_bank', {

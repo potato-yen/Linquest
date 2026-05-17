@@ -129,11 +129,12 @@ export interface PublishActivityContext {
   settings: TeacherConsoleActivitySettings;
 }
 
+// New custom-bank model: 中文 + 英文 + 詞性(optional). Distractors are
+// sampled from sibling answers at answer time, so they are not authored.
 export interface CustomBankRow {
   prompt: string;
   correct_answer: string;
-  distractors: [string, string, string];
-  meta: { difficulty: 'standard' | 'advanced' };
+  meta: { part_of_speech?: string };
 }
 
 export interface CreateActivityWithCustomBankInput {

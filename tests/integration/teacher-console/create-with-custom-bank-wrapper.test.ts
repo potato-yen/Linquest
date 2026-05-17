@@ -23,8 +23,7 @@ describeIntegration('createActivityWithCustomBank (wrapper)', () => {
       rows: Array.from({ length: 5 }, (_, i) => ({
         prompt: `p${i}`,
         correct_answer: `a${i}`,
-        distractors: [`x${i}`, `y${i}`, `z${i}`] as [string, string, string],
-        meta: { difficulty: 'standard' as const },
+        meta: { part_of_speech: 'n.' },
       })),
     });
     const { data: act } = await f.serviceSb
@@ -52,7 +51,7 @@ describeIntegration('createActivityWithCustomBank (wrapper)', () => {
         map_size_target: 60,
         refresh_interval_hours: 12,
         bank_name: 'b',
-        rows: [{ prompt: '', correct_answer: 'a', distractors: ['c', 'd', 'e'], meta: { difficulty: 'standard' } }],
+        rows: [{ prompt: '', correct_answer: 'a', meta: {} }],
       }),
     ).rejects.toMatchObject({ code: 'INVALID_CUSTOM_BANK_ROWS' });
   });
