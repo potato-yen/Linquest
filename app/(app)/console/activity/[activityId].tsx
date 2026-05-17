@@ -20,8 +20,9 @@ import {
   getActivitySettlement,
   publishActivity,
   endActivityNow,
+  deleteActivity,
 } from '../../../../lib/teacher-console/service';
-import { activityScreenState } from '../../../../lib/teacher-console-ui';
+import { activityScreenState, deleteConfirmPlan } from '../../../../lib/teacher-console-ui';
 import { mapError } from '../../../../lib/ui/error/mapError';
 import { space } from '../../../../lib/ui/tokens';
 
@@ -50,6 +51,7 @@ export default function ActivityDetail() {
   const [dialog, setDialog] = useState<null | 'publish' | 'end'>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [delStep, setDelStep] = useState<0 | 1 | 2>(0);
 
   const { state, refresh } = useScreenData<ActivityDetailData>(
     async (_signal) => {
@@ -214,7 +216,13 @@ export default function ActivityDetail() {
         </>
       )}
 
-      {/* delete entry point — Task 7 */}
+      <View style={{ marginTop: space[6] }}>
+        <Button
+          title="結束並刪除活動"
+          variant="destructive"
+          onPress={() => setDelStep(deleteConfirmPlan(d.summary.status).tier === 'double' ? 1 : 2)}
+        />
+      </View>
 
       <DialogPrompt
         visible={dialog === 'publish'}
@@ -231,6 +239,35 @@ export default function ActivityDetail() {
         confirmLabel={busy ? '處理中…' : '結束'}
         onConfirm={onEnd}
         onCancel={() => setDialog(null)}
+        destructive
+      />
+      <DialogPrompt
+        visible={delStep === 1}
+        title="活動尚未結束"
+        body={deleteConfirmPlan(d.summary.status).firstWarning ?? ''}
+        confirmLabel="仍要刪除"
+        onConfirm={() => setDelStep(2)}
+        onCancel={() => setDelStep(0)}
+        destructive
+      />
+      <DialogPrompt
+        visible={delStep === 2}
+        title={deleteConfirmPlan(d.summary.status).finalTitle}
+        body={deleteConfirmPlan(d.summary.status).finalBody}
+        confirmLabel={busy ? '刪除中…' : '永久刪除'}
+        onConfirm={async () => {
+          setBusy(true);
+          try {
+            await deleteActivity(sb, activityId!);
+            router.back();
+          } catch (e) {
+            setDelStep(0);
+            setMsg(mapError(e).message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+        onCancel={() => setDelStep(0)}
         destructive
       />
     </ScreenScaffold>
