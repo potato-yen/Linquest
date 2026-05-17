@@ -5,6 +5,8 @@ import { useSession } from '../../lib/ui/session/useSession';
 
 export default function AuthLayout() {
   const session = useSession();
-  if (session.status === 'auth') return <Redirect href="/(app)/home" />;
+  if (session.status === 'auth') {
+    return <Redirect href={session.user.role === 'teacher' ? '/(app)/console' : '/(app)/home'} />;
+  }
   return <Stack screenOptions={{ headerShown: false }} />;
 }

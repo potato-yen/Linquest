@@ -23,7 +23,7 @@ export default function AppLayout() {
 
   if (isTeacher) {
     return (
-      <Tabs screenOptions={screenOptions}>
+      <Tabs screenOptions={screenOptions} initialRouteName="console">
         <Tabs.Screen name="console" options={{ title: 'Console', tabBarIcon: ({ color: c }) => <Feather name="grid" size={20} color={c} /> }} />
         <Tabs.Screen name="me/index" options={{ title: 'Me', tabBarIcon: ({ color: c }) => <Feather name="user" size={20} color={c} /> }} />
         <Tabs.Screen name="home/index" options={{ href: null }} />

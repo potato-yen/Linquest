@@ -1,7 +1,7 @@
 // app/(app)/home/index.tsx
 import React, { useRef, useCallback } from 'react';
 import { View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, Redirect } from 'expo-router';
 import { ScreenScaffold, Text, Skeleton, ErrorState } from '../../../lib/ui/components';
 import {
   TodayTaskCard, RoadmapProgressCard, BattleStatusCard, BattleStatusPlaceholderCard,
@@ -47,6 +47,9 @@ async function fetchBattleStatus(
 
 export default function Home() {
   const s = useSession();
+  if (s.status === 'auth' && s.user.role === 'teacher') {
+    return <Redirect href="/(app)/console" />;
+  }
   const sb = getSupabaseClient();
 
   const { state, refresh } = useScreenData(async () => {
