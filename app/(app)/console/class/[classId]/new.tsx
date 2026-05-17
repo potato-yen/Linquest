@@ -1,8 +1,10 @@
 // app/(app)/console/class/[classId]/new.tsx
-// Task 5 — Teacher Console: Create Activity with pasted CSV
+// Task 5 — Teacher Console: Create Activity (CSV file import or paste)
 import React, { useState, useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
 import {
   ScreenScaffold,
   Text,
@@ -62,6 +64,8 @@ export default function NewActivityScreen() {
   const [name, setName] = useState('');
   const [days, setDays] = useState('7');
   const [csvText, setCsvText] = useState('');
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   const [groupCount, setGroupCount] = useState(4);
   const [mapSize, setMapSize] = useState(80);
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(12);
@@ -78,6 +82,26 @@ export default function NewActivityScreen() {
     daysNum >= 1 &&
     !busy;
 
+  async function handleImportFile() {
+    setImportError(null);
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: ['text/csv', 'text/comma-separated-values', 'text/plain', 'application/vnd.ms-excel'],
+        copyToCacheDirectory: true,
+      });
+      if (res.canceled || !res.assets?.[0]) return;
+      const asset = res.assets[0];
+      const text =
+        Platform.OS === 'web'
+          ? await (await fetch(asset.uri)).text()
+          : await new File(asset.uri).text();
+      setCsvText(text);
+      setFileName(asset.name);
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : '檔案讀取失敗');
+    }
+  }
+
   async function handleSubmit() {
     if (!canSubmit) return;
     setBusy(true);
@@ -89,12 +113,7 @@ export default function NewActivityScreen() {
       const rows = preview.rows.map((r) => ({
         prompt: r.prompt,
         correct_answer: r.correct_answer,
-        distractors: r.distractors as [string, string, string],
-        meta: {
-          difficulty: (r.meta.difficulty === 'advanced' ? 'advanced' : 'standard') as
-            | 'advanced'
-            | 'standard',
-        },
+        meta: r.meta,
       }));
 
       const id = await createActivityWithCustomBank(sb, {
@@ -146,11 +165,21 @@ export default function NewActivityScreen() {
 
       {/* CSV paste */}
       <SectionHeader title="題庫 CSV" />
+      <Text variant="caption" color="muted">
+        欄位：中文,英文,詞性（詞性可留空）。誘答會自動從其他題的英文答案隨機抽，不需自己出。至少 4 個不重複的英文答案。
+      </Text>
+      <View style={{ marginTop: space[2] }}>
+        <Button title="選擇 CSV 檔" variant="ghost" onPress={handleImportFile} />
+      </View>
+      {fileName ? (
+        <Text variant="caption" color="brand">已匯入：{fileName}（仍可在下方編輯）</Text>
+      ) : null}
+      {importError ? (
+        <Text variant="caption" color="warm">{importError}</Text>
+      ) : null}
       <Input
-        label="貼上 CSV 內容"
-        placeholder={
-          'prompt,correct_answer,distractor_1,distractor_2,distractor_3\n蘋果,apple,orange,banana,grape'
-        }
+        label="或直接貼上 CSV 內容"
+        placeholder={'中文,英文,詞性\n蘋果,apple,n.\n跑,run,v.\n快樂的,happy,adj.\n書,book,n.'}
         value={csvText}
         onChangeText={setCsvText}
         multiline
