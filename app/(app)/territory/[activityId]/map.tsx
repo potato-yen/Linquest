@@ -8,12 +8,15 @@ import {
 import type { SheetHandle } from '../../../../lib/ui/components/Sheet';
 import { MapCanvas } from '../../../../lib/ui/components/MapCanvas';
 import { TileDetailSheet } from '../../../../lib/ui/components/TileDetailSheet';
+import { PresenceList, PresenceListEntry } from '../../../../lib/ui/components/PresenceList';
 import { useScreenData } from '../../../../lib/ui/hooks/useScreenData';
 import { useSession } from '../../../../lib/ui/session/useSession';
 import { getSupabaseClient } from '../../../../lib/supabase';
 import { getActivityState } from '../../../../lib/territory/state';
 import { attemptCapture, resolveChallenge } from '../../../../lib/territory/arbitrator';
 import { computeTileRender } from '../../../../lib/territory-ui/tile-state';
+import { joinActivityPresence, leaveActivityPresence, listOnlineOpponents } from '../../../../lib/realtime-battle/presence';
+import { sendBattleInvite } from '../../../../lib/realtime-battle/service';
 import { AnsweringEngine } from '../../../../lib/answering/engine';
 import type { Question } from '../../../../lib/answering/types';
 import { makeTerritoryHostHooks } from '../../../../lib/answering/adapters/territory';
@@ -59,6 +62,50 @@ export default function MapScreen() {
   }, [s.status, state.status, activityId]);
 
   const [activeTileId, setActiveTileId] = useState<string | null>(null);
+
+  // Presence state for special tiles
+  const [presenceList, setPresenceList] = useState<PresenceListEntry[]>([]);
+  const membersMap = useRef<Map<string, { display_name: string; group_color: string }>>(new Map());
+
+  // Fetch all members once when activity + group are known
+  useEffect(() => {
+    if (state.status !== 'ready' || !resolvedGroupId) return;
+    (async () => {
+      const { data: mems } = await sb
+        .from('group_members')
+        .select('user_id, group_id, groups!inner(color, activity_id), users!inner(display_name)')
+        .eq('groups.activity_id', activityId);
+      const map = new Map<string, { display_name: string; group_color: string }>();
+      (mems ?? []).forEach((m: any) => {
+        map.set(m.user_id, {
+          display_name: m.users?.display_name ?? m.user_id.slice(0, 8),
+          group_color: m.groups?.color ?? color.brand.primaryMuted,
+        });
+      });
+      membersMap.current = map;
+    })();
+  }, [state.status, activityId, resolvedGroupId, sb]);
+
+  // Presence channel — open while map is mounted and group is resolved
+  useEffect(() => {
+    if (!resolvedGroupId || s.status !== 'auth') return;
+    const entry = { user_id: s.user.id, group_id: resolvedGroupId, in_battle: false };
+    const channel = joinActivityPresence(activityId, entry, sb);
+    const syncPresence = () => {
+      const opponents = listOnlineOpponents(channel, resolvedGroupId);
+      const enriched = opponents.map((op) => ({
+        user_id: op.user_id,
+        display_name: membersMap.current.get(op.user_id)?.display_name ?? op.user_id.slice(0, 8),
+        group_id: op.group_id,
+        group_color: membersMap.current.get(op.user_id)?.group_color ?? color.brand.primaryMuted,
+        in_battle: op.in_battle,
+      }));
+      setPresenceList(enriched);
+    };
+    channel.on('presence', { event: 'sync' }, syncPresence);
+    return () => { leaveActivityPresence(channel); };
+  }, [resolvedGroupId, s.status, activityId, sb]);
+
   const engine = useMemo(() => new AnsweringEngine(), []);
   const [answering, setAnswering] = useState<boolean>(false);
   const [, force] = useState(0);
@@ -158,24 +205,43 @@ export default function MapScreen() {
       {/* Tile detail sheet */}
       <Sheet ref={sheetRef} onClose={() => setActiveTileId(null)} snapPoints={['40%']}>
         {activeTile ? (
-          <TileDetailSheet
-            render={computeTileRender(activeTile, { myGroupId: resolvedGroupId, now: new Date() })}
-            ownerName={
-              activeTile.owner_group_id
-                ? data.groups.find((g) => g.id === activeTile.owner_group_id)?.name
-                : undefined
-            }
-            ownerColor={
-              activeTile.owner_group_id
-                ? data.groups.find((g) => g.id === activeTile.owner_group_id)?.color
-                : undefined
-            }
-            costLabel="—"
-            rewardLabel="—"
-            attackable={!!resolvedGroupId}
-            onAttack={onAttack}
-            specialDisabled={activeTile.kind === 'special'}
-          />
+          activeTile.kind === 'special' ? (
+            <PresenceList
+              entries={presenceList}
+              onChallenge={async (defenderId) => {
+                try {
+                  const battleId = await sendBattleInvite(sb, {
+                    activity_id: activityId,
+                    tile_id: activeTile.id,
+                    defender_user_id: defenderId,
+                  });
+                  sheetRef.current?.close();
+                  router.push(`/battle/${battleId}` as any);
+                } catch (e) {
+                  console.warn('sendBattleInvite failed', e);
+                }
+              }}
+            />
+          ) : (
+            <TileDetailSheet
+              render={computeTileRender(activeTile, { myGroupId: resolvedGroupId, now: new Date() })}
+              ownerName={
+                activeTile.owner_group_id
+                  ? data.groups.find((g) => g.id === activeTile.owner_group_id)?.name
+                  : undefined
+              }
+              ownerColor={
+                activeTile.owner_group_id
+                  ? data.groups.find((g) => g.id === activeTile.owner_group_id)?.color
+                  : undefined
+              }
+              costLabel="—"
+              rewardLabel="—"
+              attackable={!!resolvedGroupId}
+              onAttack={onAttack}
+              specialDisabled={false}
+            />
+          )
         ) : null}
       </Sheet>
 
