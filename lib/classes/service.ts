@@ -58,35 +58,17 @@ export async function joinByCode(
   sb: SupabaseClient,
   classCode: string,
 ): Promise<void> {
-  const {
-    data: { session },
-  } = await sb.auth.getSession();
+  // Resolve the code + self-join via a SECURITY DEFINER RPC. A not-yet-member
+  // student cannot SELECT the class row directly (classes RLS only exposes
+  // rows to its owner or existing members), so the lookup must bypass RLS.
+  // See migration 20260517120000_join_class_by_code_rpc.sql.
+  const { error } = await sb.rpc('join_class_by_code', { p_code: classCode });
 
-  const userId = session?.user.id;
-  if (!userId) {
-    throw new Error('not authenticated');
-  }
-
-  const { data: classRow, error: lookupError } = await sb
-    .from('classes')
-    .select('id')
-    .eq('class_code', classCode)
-    .maybeSingle();
-
-  if (lookupError) {
-    throw lookupError;
-  }
-
-  if (!classRow) {
-    throw new Error(`class with code ${classCode} not found`);
-  }
-
-  const { error: insertError } = await sb
-    .from('class_members')
-    .insert({ class_id: classRow.id, user_id: userId });
-
-  if (insertError && insertError.code !== '23505') {
-    throw insertError;
+  if (error) {
+    if (/CLASS_NOT_FOUND/.test(error.message)) {
+      throw new Error(`class with code ${classCode} not found`);
+    }
+    throw error;
   }
 }
 
