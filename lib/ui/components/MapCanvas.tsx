@@ -1,5 +1,7 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { View, Animated } from 'react-native';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Reanimated, { useSharedValue, useAnimatedStyle, withDecay } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { HexTile } from './HexTile';
 import { axialToPixel, HEX_SIZE } from '../../territory-ui/map-projection';
@@ -72,6 +74,30 @@ export function MapCanvas({ tiles, groups, myGroupId, width, height, onTilePress
     prevSelfIds.current = nowSelfIds;
   }, [tiles, myGroupId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Pinch + pan with ~300ms inertia decay (spec §7 map.panZoom). Hex taps
+  // survive because Pan needs minDistance movement and Pinch needs 2 fingers.
+  const scale = useSharedValue(1);
+  const baseScale = useSharedValue(1);
+  const tx = useSharedValue(0);
+  const ty = useSharedValue(0);
+
+  const pinch = Gesture.Pinch()
+    .onStart(() => { baseScale.value = scale.value; })
+    .onUpdate((e) => {
+      scale.value = Math.max(0.6, Math.min(2.4, baseScale.value * e.scale));
+    });
+  const pan = Gesture.Pan()
+    .minDistance(8)
+    .onChange((e) => { tx.value += e.changeX; ty.value += e.changeY; })
+    .onEnd((e) => {
+      tx.value = withDecay({ velocity: e.velocityX, deceleration: 0.992, clamp: [-width, width] });
+      ty.value = withDecay({ velocity: e.velocityY, deceleration: 0.992, clamp: [-height, height] });
+    });
+  const mapGesture = Gesture.Simultaneous(pinch, pan);
+  const mapStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: tx.value }, { translateY: ty.value }, { scale: scale.value }],
+  }));
+
   return (
     <View style={{ width, height, backgroundColor: color.bg.muted, borderRadius: 12, overflow: 'hidden' }}>
       <View
@@ -80,6 +106,8 @@ export function MapCanvas({ tiles, groups, myGroupId, width, height, onTilePress
       >
         <TerritoryBg size={Math.max(width, height)} />
       </View>
+      <GestureDetector gesture={mapGesture}>
+       <Reanimated.View style={[{ width, height }, mapStyle]}>
       <Svg width={width} height={height} viewBox={`0 0 ${vbW} ${vbH}`}>
         {positioned.map(({ tile, p }) => {
           const r = computeTileRender(tile, { myGroupId, now });
@@ -107,6 +135,8 @@ export function MapCanvas({ tiles, groups, myGroupId, width, height, onTilePress
           />
         ))}
       </Svg>
+       </Reanimated.View>
+      </GestureDetector>
     </View>
   );
 }
