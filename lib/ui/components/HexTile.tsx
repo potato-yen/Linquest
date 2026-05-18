@@ -7,12 +7,13 @@ import type { TileRender } from '../../territory-ui/tile-state';
 export interface HexTileProps {
   cx: number;
   cy: number;
+  tileId: string;
   render: TileRender;
   groupColor: string | null;
-  onPress?: () => void;
+  onPress?: (tileId: string) => void;
 }
 
-export function HexTile({ cx, cy, render: r, groupColor, onPress }: HexTileProps) {
+function HexTileImpl({ cx, cy, tileId, render: r, groupColor, onPress }: HexTileProps) {
   const verts = hexVertices(cx, cy);
 
   let fill: string = tileTok.neutral.fill;
@@ -48,7 +49,7 @@ export function HexTile({ cx, cy, render: r, groupColor, onPress }: HexTileProps
         stroke={finalStroke}
         strokeWidth={finalStrokeW}
         strokeDasharray={strokeDash}
-        onPress={onPress}
+        onPress={onPress ? () => onPress(tileId) : undefined}
       />
       {r.isCooldown ? (
         <G>
@@ -73,3 +74,24 @@ export function HexTile({ cx, cy, render: r, groupColor, onPress }: HexTileProps
     </G>
   );
 }
+
+// Polled territory data re-renders every tile each tick / during data refresh.
+// Memoize on the visual inputs only (onPress identity is intentionally
+// ignored — behaviour is stable per tileId) so a single tile change doesn't
+// re-render the whole 80-tile board. See lib/ui/perf/runtime-budget.md.
+function tileEqual(a: HexTileProps, b: HexTileProps): boolean {
+  if (a.cx !== b.cx || a.cy !== b.cy || a.tileId !== b.tileId || a.groupColor !== b.groupColor) return false;
+  const x = a.render, y = b.render;
+  return (
+    x.ownership === y.ownership &&
+    x.isCapital === y.isCapital &&
+    x.isMultiplier === y.isMultiplier &&
+    x.multiplier === y.multiplier &&
+    x.isSpecial === y.isSpecial &&
+    x.isCooldown === y.isCooldown &&
+    x.hasActiveChallenge === y.hasActiveChallenge &&
+    x.ownerGroupId === y.ownerGroupId
+  );
+}
+
+export const HexTile = React.memo(HexTileImpl, tileEqual);

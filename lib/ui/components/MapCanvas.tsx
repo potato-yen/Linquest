@@ -175,11 +175,12 @@ export function MapCanvas({ tiles, groups, myGroupId, width, height, onTilePress
           return (
             <HexTile
               key={tile.id}
+              tileId={tile.id}
               cx={p.x + offsetX}
               cy={p.y + offsetY}
               render={r}
               groupColor={r.ownerGroupId ? groupColorById[r.ownerGroupId] ?? null : null}
-              onPress={() => onTilePress?.(tile.id)}
+              onPress={onTilePress}
             />
           );
         })}

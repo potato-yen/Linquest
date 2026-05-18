@@ -4,7 +4,7 @@ import Svg from 'react-native-svg';
 import { HexTile } from '../../../../../lib/ui/components/HexTile';
 
 const props = {
-  cx: 100, cy: 100, render: {
+  cx: 100, cy: 100, tileId: 't1', render: {
     ownership: 'self' as const, isCapital: false, isMultiplier: false,
     multiplier: null, isSpecial: false, isCooldown: false, hasActiveChallenge: false,
     ownerGroupId: 'g1',
@@ -30,11 +30,11 @@ describe('HexTile', () => {
     expect(polygons[0].props.strokeWidth).toBe(1);
   });
 
-  it('fires onPress', () => {
+  it('fires onPress with the tileId', () => {
     const fn = jest.fn();
     const { UNSAFE_getAllByType } = render(<Svg><HexTile {...props} onPress={fn} /></Svg>);
     const polygons = UNSAFE_getAllByType(require('react-native-svg').Polygon);
     fireEvent(polygons[0], 'press');
-    expect(fn).toHaveBeenCalled();
+    expect(fn).toHaveBeenCalledWith('t1');
   });
 });
