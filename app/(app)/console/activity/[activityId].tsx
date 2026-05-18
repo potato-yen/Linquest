@@ -23,6 +23,7 @@ import {
   deleteActivity,
 } from '../../../../lib/teacher-console/service';
 import { activityScreenState, deleteConfirmPlan } from '../../../../lib/teacher-console-ui';
+import { teacherConsoleErrorMessage } from '../../../../lib/teacher-console/errors';
 import { mapError } from '../../../../lib/ui/error/mapError';
 import { space } from '../../../../lib/ui/tokens';
 
@@ -79,7 +80,7 @@ export default function ActivityDetail() {
       refresh();
     } catch (e) {
       setDialog(null);
-      setMsg(mapError(e).message);
+      setMsg(teacherConsoleErrorMessage(e) ?? mapError(e).message);
     } finally {
       setBusy(false);
     }
@@ -93,7 +94,7 @@ export default function ActivityDetail() {
       refresh();
     } catch (e) {
       setDialog(null);
-      setMsg(mapError(e).message);
+      setMsg(teacherConsoleErrorMessage(e) ?? mapError(e).message);
     } finally {
       setBusy(false);
     }
@@ -262,7 +263,7 @@ export default function ActivityDetail() {
             router.back();
           } catch (e) {
             setDelStep(0);
-            setMsg(mapError(e).message);
+            setMsg(teacherConsoleErrorMessage(e) ?? mapError(e).message);
           } finally {
             setBusy(false);
           }
