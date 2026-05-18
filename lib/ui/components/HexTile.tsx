@@ -50,6 +50,12 @@ export function HexTile({ cx, cy, render: r, groupColor, onPress }: HexTileProps
         strokeDasharray={strokeDash}
         onPress={onPress}
       />
+      {r.isCooldown ? (
+        <G>
+          <Polygon points={verts} fill={tileTok.cooldownMask.color} fillOpacity={tileTok.cooldownMask.alpha} />
+          <Polygon points={verts} fill="url(#cooldown-stripes)" />
+        </G>
+      ) : null}
       {r.isCapital ? (
         <SvgText x={cx} y={cy + 4} fontSize="11" fill={color.text.onPrimary} textAnchor="middle">★</SvgText>
       ) : null}
