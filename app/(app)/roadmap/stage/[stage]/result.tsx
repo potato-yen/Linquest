@@ -36,7 +36,11 @@ export default function StageResult() {
       <View style={{ gap: space[2] }}>
         <Button title={unlocked ? `進入 Stage ${stageNum + 1}` : '重打本關'}
                 onPress={() => router.replace(`/(app)/roadmap/stage/${unlocked ? stageNum + 1 : stageNum}`)} />
-        <Button title="返回山徑" variant="ghost" onPress={() => router.replace('/(app)/roadmap')} />
+        <Button
+          title="返回山徑"
+          variant="ghost"
+          onPress={() => router.replace(unlocked ? `/(app)/roadmap?unlocked=${stageNum + 1}` : '/(app)/roadmap')}
+        />
       </View>
     </ScreenScaffold>
   );

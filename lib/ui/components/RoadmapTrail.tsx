@@ -14,9 +14,10 @@ export interface RoadmapTrailProps {
   width: number;
   height: number;                // typically larger than viewport; user scrolls
   onPressStage: (stage: number) => void;
+  justUnlockedStage?: number;    // play the unlock burst on this stage flag once
 }
 
-export function RoadmapTrail({ lastStage, currentStage, width, height, onPressStage }: RoadmapTrailProps) {
+export function RoadmapTrail({ lastStage, currentStage, width, height, onPressStage, justUnlockedStage }: RoadmapTrailProps) {
   const d = buildTrailPath({ lastStage, viewport: { width, height } });
 
   return (
@@ -30,7 +31,7 @@ export function RoadmapTrail({ lastStage, currentStage, width, height, onPressSt
             s < currentStage ? 'done' :
             s === currentStage && s === lastStage ? 'final' :
             s === currentStage ? 'current' : 'locked';
-          return <StageFlag key={s} x={pos.x} y={pos.y} stage={s} state={state} />;
+          return <StageFlag key={s} x={pos.x} y={pos.y} stage={s} state={state} justUnlocked={s === justUnlockedStage} />;
         })}
       </Svg>
       {Array.from({ length: lastStage }, (_, i) => {

@@ -1,7 +1,7 @@
 // app/(app)/roadmap/index.tsx
 import React, { useRef, useEffect, useCallback } from 'react';
 import { ScrollView, useWindowDimensions } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ScreenScaffold, Text, Skeleton, ErrorState, Button } from '../../../lib/ui/components';
 import { RoadmapTrail } from '../../../lib/ui/components/RoadmapTrail';
 import { useScreenData } from '../../../lib/ui/hooks/useScreenData';
@@ -16,6 +16,18 @@ export default function RoadmapScreen() {
   const sb = getSupabaseClient();
   const win = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
+
+  // result.tsx routes back here with ?unlocked=<stage> after a stage clears;
+  // capture it once so the trail plays the unlock burst, then strip the
+  // param so a later refocus/remount doesn't replay it.
+  const params = useLocalSearchParams<{ unlocked?: string }>();
+  const justUnlockedRef = useRef<number | undefined>(undefined);
+  if (params.unlocked && justUnlockedRef.current === undefined) {
+    justUnlockedRef.current = Number(params.unlocked);
+  }
+  useEffect(() => {
+    if (params.unlocked) router.setParams({ unlocked: undefined });
+  }, [params.unlocked]);
 
   const { state, refresh } = useScreenData(async () => {
     if (s.status !== 'auth') return null;
@@ -65,6 +77,7 @@ export default function RoadmapScreen() {
           currentStage={currentStage}
           width={win.width - space[4] * 2}
           height={trailHeight}
+          justUnlockedStage={justUnlockedRef.current}
           onPressStage={(stg) => {
             if (stg <= currentStage) router.push(`/(app)/roadmap/stage/${stg}`);
           }}
