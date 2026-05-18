@@ -28,4 +28,5 @@ export * from './SectionHeader';
 export * from './ListRow';
 export * from './RankRow';
 export * from './DialogPrompt';
+export * from './PromptDialog';
 export * from './SettlementBoard';

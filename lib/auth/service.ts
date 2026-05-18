@@ -67,6 +67,32 @@ export async function signOut(sb: SupabaseClient): Promise<void> {
   }
 }
 
+// Update the signed-in user's display name. RLS policy
+// "users can update their own profile" scopes the write to auth.uid().
+// Only public.users is touched — that is what the app reads everywhere
+// (getCurrentUser, roster, presence); auth metadata is signup-only.
+export async function updateDisplayName(
+  sb: SupabaseClient,
+  displayName: string,
+): Promise<void> {
+  const {
+    data: { session },
+  } = await sb.auth.getSession();
+  const uid = session?.user.id;
+  if (!uid) {
+    throw new Error('not authenticated');
+  }
+
+  const { error } = await sb
+    .from('users')
+    .update({ display_name: displayName })
+    .eq('id', uid);
+
+  if (error) {
+    throw error;
+  }
+}
+
 export async function getCurrentUser(
   sb: SupabaseClient,
 ): Promise<AuthUser | null> {
