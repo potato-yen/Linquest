@@ -124,6 +124,19 @@ export async function listMyClasses(sb: SupabaseClient): Promise<Class[]> {
   return Array.from(classes.values());
 }
 
+export async function deleteClass(
+  sb: SupabaseClient,
+  classId: string,
+): Promise<void> {
+  // RLS "teacher can manage own classes" (for all) limits this to the owner;
+  // FK ON DELETE CASCADE drops class_members + activities (→ maps / groups /
+  // hex_tiles). No RPC needed.
+  const { error } = await sb.from('classes').delete().eq('id', classId);
+  if (error) {
+    throw error;
+  }
+}
+
 export async function listClassRoster(
   sb: SupabaseClient,
   classId: string,

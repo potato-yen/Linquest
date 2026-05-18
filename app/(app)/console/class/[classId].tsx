@@ -1,20 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   ScreenScaffold, Text, Skeleton, ErrorState, Card,
-  Button, Pressable, Badge, SectionHeader, EmptyState,
+  Button, Pressable, Badge, SectionHeader, EmptyState, DialogPrompt,
 } from '../../../../lib/ui/components';
 import { useScreenData } from '../../../../lib/ui/hooks/useScreenData';
 import { getSupabaseClient } from '../../../../lib/supabase';
-import { listClassRoster, listMyClasses } from '../../../../lib/classes/service';
+import { listClassRoster, listMyClasses, deleteClass } from '../../../../lib/classes/service';
 import { listMyActivities } from '../../../../lib/teacher-console/service';
+import { classDeleteConfirmPlan } from '../../../../lib/teacher-console-ui';
+import { mapError } from '../../../../lib/ui/error/mapError';
 import { RosterTable } from '../../../../lib/ui/composites/RosterTable';
 import { space } from '../../../../lib/ui/tokens';
 
 export default function ClassDetail() {
   const { classId } = useLocalSearchParams<{ classId: string }>();
   const sb = getSupabaseClient();
+  const [delStep, setDelStep] = useState<0 | 1 | 2>(0);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
 
   const { state, refresh } = useScreenData(async (_signal) => {
     const [classes, roster, activities] = await Promise.all([
@@ -48,6 +53,7 @@ export default function ClassDetail() {
   }
 
   const { classCode, className, roster, activities } = state.data;
+  const delPlan = classDeleteConfirmPlan(activities.map((a) => a.status));
 
   return (
     <ScreenScaffold scroll>
@@ -55,6 +61,7 @@ export default function ClassDetail() {
         <Button title="← 班級列表" variant="ghost" onPress={() => router.back()} />
       </View>
       <Text variant="h1">{className}</Text>
+      {msg ? <Text color="warm" style={{ marginTop: space[2] }}>{msg}</Text> : null}
 
       <Card style={{ marginTop: space[3], alignItems: 'center' }}>
         <Text color="muted">班級代碼（學生加入用，可長按選取）</Text>
@@ -81,6 +88,44 @@ export default function ClassDetail() {
           </Pressable>
         ))
       )}
+
+      <View style={{ marginTop: space[6] }}>
+        <Button
+          title="刪除班級"
+          variant="destructive"
+          onPress={() => setDelStep(delPlan.tier === 'double' ? 1 : 2)}
+        />
+      </View>
+
+      <DialogPrompt
+        visible={delStep === 1}
+        title="班級尚有未結束的活動"
+        body={delPlan.firstWarning ?? ''}
+        confirmLabel="仍要刪除"
+        onConfirm={() => setDelStep(2)}
+        onCancel={() => setDelStep(0)}
+        destructive
+      />
+      <DialogPrompt
+        visible={delStep === 2}
+        title={delPlan.finalTitle}
+        body={delPlan.finalBody}
+        confirmLabel={busy ? '刪除中…' : '永久刪除'}
+        onConfirm={async () => {
+          setBusy(true);
+          try {
+            await deleteClass(sb, classId);
+            router.back();
+          } catch (e) {
+            setDelStep(0);
+            setMsg(mapError(e).message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+        onCancel={() => setDelStep(0)}
+        destructive
+      />
     </ScreenScaffold>
   );
 }
