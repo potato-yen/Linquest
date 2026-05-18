@@ -4,13 +4,20 @@ import { BattleInviteToast } from '../components/BattleInviteToast';
 import { useSession } from '../session/useSession';
 import { getSupabaseClient } from '../../supabase';
 import { acceptBattleInvite, declineBattleInvite } from '../../realtime-battle/service';
-import { BattleRow } from '../../realtime-battle/types';
+import { BattleRow, REALTIME_BATTLE_DEFAULTS } from '../../realtime-battle/types';
 
 interface IncomingInvite {
   battle_id: string;
   challenger_name: string;
   challenger_color: string;
   expires_at: string;
+}
+
+export function buildInviteDeadline(createdAt: string): string {
+  const createdAtMs = Date.parse(createdAt);
+  return new Date(
+    createdAtMs + REALTIME_BATTLE_DEFAULTS.battle_invite_timeout_minutes * 60_000,
+  ).toISOString();
 }
 
 export function BattleInviteRoot() {
@@ -45,7 +52,7 @@ export function BattleInviteRoot() {
             battle_id: b.id,
             challenger_name: (u as any)?.display_name ?? '挑戰者',
             challenger_color: (gm as any)?.groups?.color ?? '#5A7E3A',
-            expires_at: b.created_at,
+            expires_at: buildInviteDeadline(b.created_at),
           });
         },
       )
