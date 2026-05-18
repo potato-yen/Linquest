@@ -41,8 +41,9 @@ export async function leaveActivityPresence(channel: RealtimeChannel): Promise<v
 export function listOnlineOpponents(
   channel: PresenceChannelLike,
   myGroupId: string,
+  busyUserIds: ReadonlySet<string> = new Set(),
 ): PresenceEntry[] {
   return Object.values(channel.presenceState())
     .flat()
-    .filter((entry) => entry.group_id !== myGroupId && !entry.in_battle);
+    .filter((entry) => entry.group_id !== myGroupId && !entry.in_battle && !busyUserIds.has(entry.user_id));
 }

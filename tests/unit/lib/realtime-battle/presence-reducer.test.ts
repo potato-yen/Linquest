@@ -40,4 +40,36 @@ describe('realtime battle presence', () => {
       },
     ]);
   });
+
+  it('filters out users who are battle-busy even when presence still says in_battle=false', () => {
+    const channel = {
+      presenceState: () => ({
+        'user-2': [
+          {
+            user_id: 'user-2',
+            group_id: 'group-b',
+            in_battle: false,
+            last_active_at: '2026-05-11T10:00:00.000Z',
+          },
+        ],
+        'user-4': [
+          {
+            user_id: 'user-4',
+            group_id: 'group-c',
+            in_battle: false,
+            last_active_at: '2026-05-11T10:00:00.000Z',
+          },
+        ],
+      }),
+    };
+
+    expect(listOnlineOpponents(channel as never, 'group-a', new Set(['user-2']))).toEqual([
+      {
+        user_id: 'user-4',
+        group_id: 'group-c',
+        in_battle: false,
+        last_active_at: '2026-05-11T10:00:00.000Z',
+      },
+    ]);
+  });
 });

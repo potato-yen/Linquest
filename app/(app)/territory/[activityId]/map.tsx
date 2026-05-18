@@ -93,6 +93,20 @@ export default function MapScreen() {
     if (!resolvedGroupId || s.status !== 'auth') return;
     const entry = { user_id: s.user.id, group_id: resolvedGroupId, in_battle: false };
     const channel = joinActivityPresence(activityId, entry, sb);
+    const battleChannel = sb
+      .channel(`activity:${activityId}:battle-presence`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'battles',
+          filter: `activity_id=eq.${activityId}`,
+        },
+        () => { void syncPresence(); },
+      )
+      .subscribe();
+
     const syncPresence = async () => {
       const { data: battles } = await sb
         .from('battles')
@@ -104,8 +118,7 @@ export default function MapScreen() {
         if (battle.challenger_user_id) busyUsers.add(battle.challenger_user_id);
         if (battle.defender_user_id) busyUsers.add(battle.defender_user_id);
       });
-      const opponents = listOnlineOpponents(channel, resolvedGroupId)
-        .filter((op) => !busyUsers.has(op.user_id));
+      const opponents = listOnlineOpponents(channel, resolvedGroupId, busyUsers);
       const enriched = opponents.map((op) => ({
         user_id: op.user_id,
         display_name: membersMap.current.get(op.user_id)?.display_name ?? op.user_id.slice(0, 8),
@@ -117,7 +130,10 @@ export default function MapScreen() {
     };
     channel.on('presence', { event: 'sync' }, () => { void syncPresence(); });
     void syncPresence();
-    return () => { leaveActivityPresence(channel); };
+    return () => {
+      void leaveActivityPresence(channel);
+      sb.removeChannel(battleChannel);
+    };
   }, [resolvedGroupId, s.status, activityId, sb]);
 
   const engine = useMemo(() => new AnsweringEngine(), []);
