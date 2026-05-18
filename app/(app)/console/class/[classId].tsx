@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import {
   ScreenScaffold, Text, Skeleton, ErrorState, Card,
   Button, Pressable, Badge, SectionHeader, EmptyState, DialogPrompt,
@@ -29,10 +29,19 @@ export default function ClassDetail() {
       listMyActivities(sb, classId),
     ]);
     const cls = classes.find((c) => c.id === classId);
-    return { classCode: cls?.class_code ?? '', className: cls?.name ?? '班級', roster, activities };
+    // Class gone (e.g. deleted in another session) → null ⇒ status 'empty'
+    // ⇒ the screen bounces back instead of showing a blank "班級".
+    if (!cls) return null;
+    return { classCode: cls.class_code, className: cls.name, roster, activities };
   }, [classId]);
 
-  // NOTE: loader always returns a non-null object so status === 'empty' won't naturally trigger.
+  // Re-fetch on focus so returning from the new-activity screen (or any
+  // mutation) reflects DB truth. Skip first focus — useScreenData loads on mount.
+  const mounted = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (!mounted.current) { mounted.current = true; return; }
+    refresh();
+  }, [refresh]));
 
   if (state.status === 'loading') {
     return (
