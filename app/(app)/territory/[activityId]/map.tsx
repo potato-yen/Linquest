@@ -125,6 +125,12 @@ export default function MapScreen() {
   const [, force] = useState(0);
   useEffect(() => engine.subscribe(() => force((x) => x + 1)), [engine]);
 
+  const answeringState = engine.state;
+  const answeringChoices = useMemo(() => {
+    if (!answeringState.current) return [];
+    return buildChoiceOrder(answeringState.current);
+  }, [answeringState.current]);
+
   if (state.status === 'loading') return <ScreenScaffold><Skeleton height={400} /></ScreenScaffold>;
   if (state.status === 'error') return <ScreenScaffold><ErrorState error={state.error} onRetry={refresh} /></ScreenScaffold>;
   if (state.status === 'empty') return <ScreenScaffold><Text>找不到活動</Text></ScreenScaffold>;
@@ -210,12 +216,6 @@ export default function MapScreen() {
   }
 
   const myTileCount = data.tiles.filter((t) => t.owner_group_id === resolvedGroupId).length;
-
-  const answeringState = engine.state;
-  const answeringChoices = useMemo(() => {
-    if (!answeringState.current) return [];
-    return buildChoiceOrder(answeringState.current);
-  }, [answeringState.current?.id]);
 
   return (
     <ScreenScaffold>
