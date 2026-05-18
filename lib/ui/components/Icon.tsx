@@ -1,11 +1,31 @@
 // lib/ui/components/Icon.tsx
+// Phase 4: custom hand-drawn SVG icon set (replaced Feather). API unchanged.
 import React from 'react';
-import { Feather } from '@expo/vector-icons';
 import { color } from '../tokens';
+import {
+  HomeGlyph, MapGlyph, HexagonGlyph, GridGlyph, UserGlyph,
+  ChevronRightGlyph, ChevronLeftGlyph, ChevronUpGlyph, ChevronDownGlyph,
+  CheckGlyph, Volume2Glyph,
+} from './icon-glyphs';
 
-// Phase 4 will replace this with custom hand-drawn SVG set; the component API stays the same.
-export type IconName = keyof typeof Feather.glyphMap;
+const GLYPHS = {
+  home: HomeGlyph,
+  map: MapGlyph,
+  hexagon: HexagonGlyph,
+  grid: GridGlyph,
+  user: UserGlyph,
+  'chevron-right': ChevronRightGlyph,
+  'chevron-left': ChevronLeftGlyph,
+  'chevron-up': ChevronUpGlyph,
+  'chevron-down': ChevronDownGlyph,
+  check: CheckGlyph,
+  'volume-2': Volume2Glyph,
+} as const;
+
+export type IconName = keyof typeof GLYPHS;
 
 export function Icon({ name, size = 20, color: c = color.text.primary }: { name: IconName; size?: 16 | 20 | 24; color?: string }) {
-  return <Feather name={name} size={size} color={c} />;
+  const G = GLYPHS[name];
+  if (!G) return null;
+  return <G size={size} color={c} />;
 }
