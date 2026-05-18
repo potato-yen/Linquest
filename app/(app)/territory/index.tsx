@@ -3,6 +3,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { ScreenScaffold, Text, Skeleton, ErrorState, EmptyState, ListRow } from '../../../lib/ui/components';
+import { illustrations } from '../../../lib/ui/illustrations';
 import { useScreenData } from '../../../lib/ui/hooks/useScreenData';
 import { useSession } from '../../../lib/ui/session/useSession';
 import { getSupabaseClient } from '../../../lib/supabase';
@@ -35,9 +36,10 @@ export default function TerritoryTab() {
        state.status === 'error' ? <ErrorState error={state.error} onRetry={refresh} /> :
        state.status === 'empty' ? (
         isTeacher ? (
-          <EmptyState title="還沒有活動" body="在教師後台建立班級並發布活動後，活動會出現在這裡。" />
+          <EmptyState illustration={illustrations.empty.noActivity} title="還沒有活動" body="在教師後台建立班級並發布活動後，活動會出現在這裡。" />
         ) : (
           <EmptyState
+            illustration={illustrations.empty.noActivity}
             title="還沒有活動"
             body="加入老師建立的班級後，活動會出現在這裡。"
             ctaTitle="加入班級"

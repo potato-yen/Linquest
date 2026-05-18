@@ -10,6 +10,7 @@ import { Pressable } from '../components/Pressable';
 import { Card } from '../components/Card';
 import { Divider } from '../components/Divider';
 import { EmptyState } from '../components/EmptyState';
+import { illustrations } from '../illustrations';
 import { Icon } from '../components/Icon';
 import { color, space, radius } from '../tokens';
 import type { ClassRosterRow } from '../../classes/types';
@@ -64,7 +65,7 @@ export function RosterTable({ roster }: { roster: ClassRosterRow[] }) {
 
       {open ? (
         roster.length === 0 ? (
-          <EmptyState title="尚無學生" body="把班級代碼分享給學生，他們加入後會出現在這裡。" />
+          <EmptyState illustration={illustrations.empty.noClass} title="尚無學生" body="把班級代碼分享給學生，他們加入後會出現在這裡。" />
         ) : (
           <Card padding={0} style={{ marginTop: space[2], overflow: 'hidden' }}>
             <Pressable onPress={toggleAll} style={[styles.row, styles.headRow]}>

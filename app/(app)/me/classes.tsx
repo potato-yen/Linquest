@@ -3,6 +3,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { ScreenScaffold, Text, Skeleton, ErrorState, EmptyState, ListRow } from '../../../lib/ui/components';
+import { illustrations } from '../../../lib/ui/illustrations';
 import { useScreenData } from '../../../lib/ui/hooks/useScreenData';
 import { useSession } from '../../../lib/ui/session/useSession';
 import { getSupabaseClient } from '../../../lib/supabase';
@@ -37,6 +38,7 @@ export default function MyClasses() {
        state.status === 'error' ? <ErrorState error={state.error} onRetry={refresh} /> :
        state.status === 'empty' ? (
         <EmptyState
+          illustration={illustrations.empty.noClass}
           title="還沒加入班級"
           body="輸入老師提供的 6 位代碼即可加入。"
           ctaTitle="加入班級"

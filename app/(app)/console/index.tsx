@@ -5,6 +5,7 @@ import {
   ScreenScaffold, Text, Skeleton, ErrorState, EmptyState,
   Card, Pressable, Button, Input,
 } from '../../../lib/ui/components';
+import { illustrations } from '../../../lib/ui/illustrations';
 import { useScreenData } from '../../../lib/ui/hooks/useScreenData';
 import { getSupabaseClient } from '../../../lib/supabase';
 import { listMyClasses, createClass } from '../../../lib/classes/service';
@@ -36,7 +37,7 @@ export default function ConsoleClassList() {
         ) : state.status === 'error' ? (
           <ErrorState error={state.error} onRetry={refresh} />
         ) : state.status === 'empty' ? (
-          <EmptyState title="尚無班級" body="建立第一個班級，把 class code 分享給學生加入。" />
+          <EmptyState illustration={illustrations.empty.noClass} title="尚無班級" body="建立第一個班級，把 class code 分享給學生加入。" />
         ) : (
           state.data.map((c) => (
             <Pressable key={c.id} onPress={() => router.push(`/console/class/${c.id}`)}>

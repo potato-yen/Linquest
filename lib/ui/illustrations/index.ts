@@ -1,22 +1,43 @@
 // lib/ui/illustrations/index.ts
-// Phase 0: all assets resolve to null. Phase 4 swaps these to require('./xxx.png').
-// EmptyState/ErrorState handle null illustration by rendering text only.
+// Phase 4: assets are in-code SVG components (not raster require()).
+// Brief: scripts/asset-spec-sheet.md. Consumers render <Component size={..} />.
+import type { ComponentType } from 'react';
+import type { IllustrationProps } from './scenes';
+import {
+  ParchmentBg,
+  EmptyNoClass, EmptyNoActivity, EmptyAllDone, EmptyNoRank, EmptyStartHere,
+  ErrorNetwork, ErrorServer, ErrorUnknown,
+  RoadmapBg, TerritoryBg,
+} from './scenes';
+import { GroupCrest } from './GroupCrest';
+import type { ScreenErrorKind } from '../error/mapError';
+
+export type Illustration = ComponentType<IllustrationProps>;
 
 export const illustrations = {
-  parchmentBg: null as number | null,
+  parchmentBg: ParchmentBg,
   empty: {
-    noClass: null as number | null,
-    noActivity: null as number | null,
-    allDone: null as number | null,
-    noRank: null as number | null,
-    startHere: null as number | null,
+    noClass: EmptyNoClass,
+    noActivity: EmptyNoActivity,
+    allDone: EmptyAllDone,
+    noRank: EmptyNoRank,
+    startHere: EmptyStartHere,
   },
   error: {
-    network: null as number | null,
-    server: null as number | null,
-    unknown: null as number | null,
+    network: ErrorNetwork,
+    server: ErrorServer,
+    unknown: ErrorUnknown,
   },
-  trail: { roadmapBg: null as number | null },
-  map: { territoryBg: null as number | null },
-  crest: Array.from({ length: 10 }, () => null as number | null),
+  trail: { roadmapBg: RoadmapBg },
+  map: { territoryBg: TerritoryBg },
 } as const;
+
+// ScreenError.kind → error illustration ('auth' has no art → unknown).
+export function errorIllustration(kind: ScreenErrorKind): Illustration {
+  if (kind === 'network') return ErrorNetwork;
+  if (kind === 'server') return ErrorServer;
+  return ErrorUnknown;
+}
+
+export { GroupCrest };
+export type { IllustrationProps };

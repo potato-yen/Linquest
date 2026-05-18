@@ -5,6 +5,7 @@ import {
   ScreenScaffold, Text, Skeleton, ErrorState, Card,
   Button, Pressable, Badge, SectionHeader, EmptyState, DialogPrompt,
 } from '../../../../lib/ui/components';
+import { illustrations } from '../../../../lib/ui/illustrations';
 import { useScreenData } from '../../../../lib/ui/hooks/useScreenData';
 import { getSupabaseClient } from '../../../../lib/supabase';
 import { listClassRoster, listMyClasses, deleteClass } from '../../../../lib/classes/service';
@@ -77,7 +78,7 @@ export default function ClassDetail() {
         <Button title="＋ 開新活動" onPress={() => router.push(`/console/class/${classId}/new`)} />
       </View>
       {activities.length === 0 ? (
-        <EmptyState title="尚無活動" body="建立一輪領地佔領活動。" />
+        <EmptyState illustration={illustrations.empty.noActivity} title="尚無活動" body="建立一輪領地佔領活動。" />
       ) : (
         activities.map((a) => (
           <Pressable key={a.id} onPress={() => router.push(`/console/activity/${a.id}`)}>

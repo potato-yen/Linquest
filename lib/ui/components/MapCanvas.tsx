@@ -1,12 +1,12 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
-import { View, Image, Animated } from 'react-native';
+import { View, Animated } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { HexTile } from './HexTile';
 import { axialToPixel, HEX_SIZE } from '../../territory-ui/map-projection';
 import { computeTileRender } from '../../territory-ui/tile-state';
 import { color } from '../tokens';
 import type { HexTile as HexTileRow } from '../../territory/types';
-import { illustrations } from '../illustrations';
+import { TerritoryBg } from '../illustrations/scenes';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -74,9 +74,12 @@ export function MapCanvas({ tiles, groups, myGroupId, width, height, onTilePress
 
   return (
     <View style={{ width, height, backgroundColor: color.bg.muted, borderRadius: 12, overflow: 'hidden' }}>
-      {illustrations.map.territoryBg ? (
-        <Image source={illustrations.map.territoryBg} style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0.7 }} resizeMode="cover" />
-      ) : null}
+      <View
+        pointerEvents="none"
+        style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', opacity: 0.7 }}
+      >
+        <TerritoryBg size={Math.max(width, height)} />
+      </View>
       <Svg width={width} height={height} viewBox={`0 0 ${vbW} ${vbH}`}>
         {positioned.map(({ tile, p }) => {
           const r = computeTileRender(tile, { myGroupId, now });
