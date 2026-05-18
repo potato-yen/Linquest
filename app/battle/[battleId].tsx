@@ -11,10 +11,18 @@ import { getSupabaseClient } from '../../lib/supabase';
 import { joinBattleRoom } from '../../lib/realtime-battle/room';
 import { submitBattleAnswer, heartbeatBattle } from '../../lib/realtime-battle/service';
 import { BattleRow } from '../../lib/realtime-battle/types';
+import {
+  beginBattleSubmission,
+  canSubmitBattleChoice,
+  createBattleClientState,
+  getBattleChoiceState,
+  rejectBattleSubmission,
+  resolveBattleSubmission,
+  syncBattleClientState,
+} from '../../lib/realtime-battle/session';
+import { BattleError } from '../../lib/realtime-battle/errors';
 import { buildChoiceOrder } from '../../lib/answering/choices';
-import { AnsweringEngine } from '../../lib/answering/engine';
 import { Question } from '../../lib/answering/types';
-import { makeBattleHostHooks } from '../../lib/answering/adapters/battle';
 import { needsSampledDistractors, sampleDistractors } from '../../lib/answering/sample-distractors';
 import { mapError } from '../../lib/ui/error/mapError';
 import { space } from '../../lib/ui/tokens';
@@ -26,10 +34,8 @@ export default function BattleModal() {
   const [row, setRow] = useState<BattleRow | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  const engine = useMemo(() => new AnsweringEngine(), []);
-  const [, force] = useState(0);
-  useEffect(() => engine.subscribe(() => force((x) => x + 1)), [engine]);
+  const [clientState, setClientState] = useState(createBattleClientState);
+  const questionStartedAt = useRef<number>(Date.now());
 
   // Realtime room subscription — updates row whenever battle changes
   useEffect(() => {
@@ -111,20 +117,14 @@ export default function BattleModal() {
     return () => clearInterval(t);
   }, [sb, battleId]);
 
-  // Drive engine once questions arrive
-  const engineStarted = useRef(false);
   useEffect(() => {
-    if (questions.length === 0 || engineStarted.current) return;
-    engineStarted.current = true;
-    const hooks = makeBattleHostHooks({
-      submitBattleAnswer: (args) => submitBattleAnswer(sb, args),
-      battleId,
-      currentIndex: () => engine.state.currentIndex,
-      onFinish: () => { /* wait for row.status='finished' from realtime */ },
-    });
-    engine.start({ questions, ...hooks });
-    return () => { engine.abort(); engineStarted.current = false; };
-  }, [questions, engine, sb, battleId]);
+    if (!row) return;
+    setClientState((prev) => syncBattleClientState(prev, row));
+  }, [row?.id, row?.status, row?.current_index]);
+
+  useEffect(() => {
+    questionStartedAt.current = Date.now();
+  }, [row?.id, row?.current_index]);
 
   if (error) {
     return (
@@ -158,11 +158,39 @@ export default function BattleModal() {
   const finished = row.status === 'finished';
   const aborted = row.status === 'aborted';
   const won = finished && row.winner_user_id === s.user.id;
-  const current = engine.state.current;
-  const currentChoices = useMemo(() => {
-    if (!current) return [];
-    return buildChoiceOrder(current);
-  }, [current?.id]);
+  const current = row.status === 'in_progress'
+    ? questions[row.current_index] ?? null
+    : null;
+  const currentChoices = useMemo(
+    () => (current ? buildChoiceOrder(current) : []),
+    [current?.id],
+  );
+
+  async function onChoose(choice: string) {
+    if (!row || !current || !canSubmitBattleChoice(row, clientState)) {
+      return;
+    }
+
+    const questionIndex = row.current_index;
+    setClientState((prev) => beginBattleSubmission(prev, row, choice));
+
+    try {
+      const result = await submitBattleAnswer(sb, {
+        battle_id: row.id,
+        question_index: questionIndex,
+        choice,
+        response_ms: Math.max(0, Date.now() - questionStartedAt.current),
+      });
+      setClientState((prev) => resolveBattleSubmission(prev, result));
+    } catch (submitError) {
+      setClientState((prev) => {
+        if (prev.phase !== 'submitting' || prev.questionIndex !== questionIndex) {
+          return prev;
+        }
+        return rejectBattleSubmission(row, mapBattleSubmitError(submitError));
+      });
+    }
+  }
 
   return (
     <ScreenScaffold scroll>
@@ -182,22 +210,24 @@ export default function BattleModal() {
               key={c}
               pick={'ABCD'[i] as 'A' | 'B' | 'C' | 'D'}
               choice={c}
-              state={
-                engine.state.phase === 'reveal'
-                  ? c === current.correct_answer
-                    ? 'correct'
-                    : c === engine.state.lastAttempt?.chosen
-                      ? 'incorrect'
-                      : 'idle'
-                  : 'idle'
-              }
-              onPress={() => engine.answer(c)}
+              state={getBattleChoiceState(c, current.correct_answer, clientState)}
+              onPress={() => {
+                void onChoose(c);
+              }}
             />
           ))}
-          {engine.state.phase === 'reveal' && row.current_index < questions.length - 1 ? (
-            <Button title="下一題 →" onPress={() => engine.next()} />
+          {clientState.error ? (
+            <Text variant="caption" color="warm" style={{ textAlign: 'center' }}>
+              {clientState.error}
+            </Text>
           ) : null}
-          {engine.state.phase === 'question' && row.current_index_decided ? (
+          {clientState.phase === 'submitting' ? (
+            <Text variant="caption" color="muted" style={{ textAlign: 'center' }}>提交中…</Text>
+          ) : null}
+          {clientState.phase === 'revealed' ? (
+            <Text variant="caption" color="muted" style={{ textAlign: 'center' }}>等待下一題…</Text>
+          ) : null}
+          {clientState.phase === 'idle' && row.current_index_decided ? (
             <Text variant="caption" color="muted" style={{ textAlign: 'center' }}>等待對方提交…</Text>
           ) : null}
         </View>
@@ -221,4 +251,24 @@ export default function BattleModal() {
       ) : null}
     </ScreenScaffold>
   );
+}
+
+function mapBattleSubmitError(error: unknown): string {
+  if (error instanceof BattleError) {
+    switch (error.code) {
+      case 'QUESTION_DEADLINE_PASSED':
+        return '本題已截止，等待下一題。';
+      case 'ALREADY_LOCKED':
+        return '你本題已鎖定，等待對方提交。';
+      case 'NOT_REVEALED_YET':
+        return '題目尚未開始，請稍候。';
+      case 'INDEX_IN_FUTURE':
+      case 'BATTLE_NOT_IN_PROGRESS':
+        return '對戰狀態已更新，請等待同步。';
+      default:
+        break;
+    }
+  }
+
+  return mapError(error).message;
 }
