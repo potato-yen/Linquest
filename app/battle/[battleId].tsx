@@ -11,6 +11,7 @@ import { getSupabaseClient } from '../../lib/supabase';
 import { joinBattleRoom } from '../../lib/realtime-battle/room';
 import { submitBattleAnswer, heartbeatBattle } from '../../lib/realtime-battle/service';
 import { BattleRow } from '../../lib/realtime-battle/types';
+import { buildChoiceOrder } from '../../lib/answering/choices';
 import { AnsweringEngine } from '../../lib/answering/engine';
 import { Question } from '../../lib/answering/types';
 import { makeBattleHostHooks } from '../../lib/answering/adapters/battle';
@@ -158,6 +159,10 @@ export default function BattleModal() {
   const aborted = row.status === 'aborted';
   const won = finished && row.winner_user_id === s.user.id;
   const current = engine.state.current;
+  const currentChoices = useMemo(() => {
+    if (!current) return [];
+    return buildChoiceOrder(current);
+  }, [current?.id]);
 
   return (
     <ScreenScaffold scroll>
@@ -172,7 +177,7 @@ export default function BattleModal() {
       {!finished && !aborted && current ? (
         <View style={{ marginTop: space[3], gap: space[3] }}>
           <QuestionCard prompt={current.prompt} />
-          {[current.correct_answer, ...current.distractors].map((c, i) => (
+          {currentChoices.map((c, i) => (
             <ChoiceCard
               key={c}
               pick={'ABCD'[i] as 'A' | 'B' | 'C' | 'D'}

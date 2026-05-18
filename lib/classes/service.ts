@@ -128,12 +128,9 @@ export async function deleteClass(
   sb: SupabaseClient,
   classId: string,
 ): Promise<void> {
-  // RLS "teacher can manage own classes" (for all) limits this to the owner;
-  // FK ON DELETE CASCADE drops class_members + activities (→ maps / groups /
-  // hex_tiles). No RPC needed.
-  const { error } = await sb.from('classes').delete().eq('id', classId);
+  const { error } = await sb.rpc('delete_class', { p_class_id: classId });
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 }
 

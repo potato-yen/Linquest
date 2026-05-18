@@ -55,7 +55,7 @@ describeIntegration('create_activity_with_custom_bank', () => {
       p_map_size_target: 60,
       p_refresh_interval_hours: 12,
       p_bank_name: 'b',
-      p_rows: [{ prompt: 'a', correct_answer: 'b', distractors: ['c', 'd', 'e'] }],
+      p_rows: [{ prompt: 'a', correct_answer: 'b', meta: { part_of_speech: 'n.' } }],
     });
 
     expect(error?.message).toContain('NOT_CLASS_OWNER');
@@ -71,7 +71,7 @@ describeIntegration('create_activity_with_custom_bank', () => {
       p_map_size_target: 60,
       p_refresh_interval_hours: 12,
       p_bank_name: 'b',
-      p_rows: [{ prompt: '', correct_answer: 'b', distractors: ['c', 'd'] }],
+      p_rows: [{ prompt: '', correct_answer: 'b', meta: {} }],
     });
 
     expect(error?.message).toContain('INVALID_CUSTOM_BANK_ROWS');

@@ -17,6 +17,7 @@ import { attemptCapture, resolveChallenge } from '../../../../lib/territory/arbi
 import { computeTileRender } from '../../../../lib/territory-ui/tile-state';
 import { joinActivityPresence, leaveActivityPresence, listOnlineOpponents } from '../../../../lib/realtime-battle/presence';
 import { sendBattleInvite } from '../../../../lib/realtime-battle/service';
+import { buildChoiceOrder } from '../../../../lib/answering/choices';
 import { AnsweringEngine } from '../../../../lib/answering/engine';
 import type { Question } from '../../../../lib/answering/types';
 import { makeTerritoryHostHooks } from '../../../../lib/answering/adapters/territory';
@@ -92,8 +93,19 @@ export default function MapScreen() {
     if (!resolvedGroupId || s.status !== 'auth') return;
     const entry = { user_id: s.user.id, group_id: resolvedGroupId, in_battle: false };
     const channel = joinActivityPresence(activityId, entry, sb);
-    const syncPresence = () => {
-      const opponents = listOnlineOpponents(channel, resolvedGroupId);
+    const syncPresence = async () => {
+      const { data: battles } = await sb
+        .from('battles')
+        .select('challenger_user_id, defender_user_id')
+        .eq('activity_id', activityId)
+        .in('status', ['pending_invite', 'in_progress']);
+      const busyUsers = new Set<string>();
+      (battles ?? []).forEach((battle: any) => {
+        if (battle.challenger_user_id) busyUsers.add(battle.challenger_user_id);
+        if (battle.defender_user_id) busyUsers.add(battle.defender_user_id);
+      });
+      const opponents = listOnlineOpponents(channel, resolvedGroupId)
+        .filter((op) => !busyUsers.has(op.user_id));
       const enriched = opponents.map((op) => ({
         user_id: op.user_id,
         display_name: membersMap.current.get(op.user_id)?.display_name ?? op.user_id.slice(0, 8),
@@ -103,7 +115,8 @@ export default function MapScreen() {
       }));
       setPresenceList(enriched);
     };
-    channel.on('presence', { event: 'sync' }, syncPresence);
+    channel.on('presence', { event: 'sync' }, () => { void syncPresence(); });
+    void syncPresence();
     return () => { leaveActivityPresence(channel); };
   }, [resolvedGroupId, s.status, activityId, sb]);
 
@@ -199,6 +212,10 @@ export default function MapScreen() {
   const myTileCount = data.tiles.filter((t) => t.owner_group_id === resolvedGroupId).length;
 
   const answeringState = engine.state;
+  const answeringChoices = useMemo(() => {
+    if (!answeringState.current) return [];
+    return buildChoiceOrder(answeringState.current);
+  }, [answeringState.current?.id]);
 
   return (
     <ScreenScaffold>
@@ -279,7 +296,7 @@ export default function MapScreen() {
           {answeringState.current ? (
             <>
               <QuestionCard prompt={answeringState.current.prompt} />
-              {[answeringState.current.correct_answer, ...answeringState.current.distractors].map((c, i) => (
+              {answeringChoices.map((c, i) => (
                 <ChoiceCard
                   key={c}
                   pick={('ABCD'[i] as 'A' | 'B' | 'C' | 'D')}
