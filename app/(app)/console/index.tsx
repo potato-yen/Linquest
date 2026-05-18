@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
   ScreenScaffold, Text, Skeleton, ErrorState, EmptyState,
   Card, Pressable, Button, Input,
@@ -19,6 +19,15 @@ export default function ConsoleClassList() {
     const classes = await listMyClasses(sb);
     return classes.length > 0 ? classes : null;
   }, []);
+
+  // Re-fetch when the list regains focus (e.g. after deleting a class in the
+  // detail screen and routing back) so the cached list isn't stale. Skip the
+  // first focus — useScreenData already loads on mount.
+  const mounted = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (!mounted.current) { mounted.current = true; return; }
+    refresh();
+  }, [refresh]));
 
   async function onCreate() {
     if (!name.trim()) return;
