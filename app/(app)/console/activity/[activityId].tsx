@@ -128,7 +128,7 @@ export default function ActivityDetail() {
             <Text>結束於 {new Date(d.summary.ends_at).toLocaleString()}</Text>
           </Card>
           <View style={{ marginTop: space[4] }}>
-            <Button title="Publish（發布活動）" onPress={() => setDialog('publish')} />
+            <Button title="發布活動" onPress={() => setDialog('publish')} />
           </View>
         </>
       )}
@@ -228,8 +228,8 @@ export default function ActivityDetail() {
       <DialogPrompt
         visible={dialog === 'publish'}
         title="發布活動？"
-        body="將 snapshot 班級名單 → 隨機平衡分組 → 生成地圖 → 投放第一波。Publish 後不可逆。"
-        confirmLabel={busy ? '處理中…' : 'Publish'}
+        body="將為目前班級名單建檔、隨機平衡分組、生成地圖並投放第一波。發布後不可復原。"
+        confirmLabel={busy ? '處理中…' : '發布'}
         onConfirm={onPublish}
         onCancel={() => setDialog(null)}
       />

@@ -37,7 +37,7 @@ export default function ConsoleClassList() {
         ) : state.status === 'error' ? (
           <ErrorState error={state.error} onRetry={refresh} />
         ) : state.status === 'empty' ? (
-          <EmptyState illustration={illustrations.empty.noClass} title="尚無班級" body="建立第一個班級，把 class code 分享給學生加入。" />
+          <EmptyState illustration={illustrations.empty.noClass} title="尚無班級" body="建立第一個班級，把班級代碼分享給學生加入。" />
         ) : (
           state.data.map((c) => (
             <Pressable key={c.id} onPress={() => router.push(`/console/class/${c.id}`)}>

@@ -24,8 +24,8 @@ export default function AppLayout() {
   if (isTeacher) {
     return (
       <Tabs screenOptions={screenOptions} initialRouteName="console">
-        <Tabs.Screen name="console" options={{ title: 'Console', tabBarIcon: ({ color: c }) => <Icon name="grid" size={20} color={c} /> }} />
-        <Tabs.Screen name="me/index" options={{ title: 'Me', tabBarIcon: ({ color: c }) => <Icon name="user" size={20} color={c} /> }} />
+        <Tabs.Screen name="console" options={{ title: '概況', tabBarIcon: ({ color: c }) => <Icon name="grid" size={20} color={c} /> }} />
+        <Tabs.Screen name="me/index" options={{ title: '我的', tabBarIcon: ({ color: c }) => <Icon name="user" size={20} color={c} /> }} />
         <Tabs.Screen name="home/index" options={{ href: null }} />
         <Tabs.Screen name="roadmap" options={{ href: null }} />
         <Tabs.Screen name="territory/index" options={{ href: null }} />
@@ -39,10 +39,10 @@ export default function AppLayout() {
   return (
     <>
       <Tabs screenOptions={screenOptions}>
-        <Tabs.Screen name="home/index" options={{ title: 'Home', tabBarIcon: ({ color: c }) => <Icon name="home" size={20} color={c} /> }} />
-        <Tabs.Screen name="roadmap" options={{ title: 'Roadmap', tabBarIcon: ({ color: c }) => <Icon name="map" size={20} color={c} /> }} />
-        <Tabs.Screen name="territory/index" options={{ title: 'Territory', tabBarIcon: ({ color: c }) => <Icon name="hexagon" size={20} color={c} /> }} />
-        <Tabs.Screen name="me/index" options={{ title: 'Me', tabBarIcon: ({ color: c }) => <Icon name="user" size={20} color={c} /> }} />
+        <Tabs.Screen name="home/index" options={{ title: '首頁', tabBarIcon: ({ color: c }) => <Icon name="home" size={20} color={c} /> }} />
+        <Tabs.Screen name="roadmap" options={{ title: '關卡', tabBarIcon: ({ color: c }) => <Icon name="map" size={20} color={c} /> }} />
+        <Tabs.Screen name="territory/index" options={{ title: '領地', tabBarIcon: ({ color: c }) => <Icon name="hexagon" size={20} color={c} /> }} />
+        <Tabs.Screen name="me/index" options={{ title: '我的', tabBarIcon: ({ color: c }) => <Icon name="user" size={20} color={c} /> }} />
         <Tabs.Screen name="me/classes" options={{ href: null }} />
         <Tabs.Screen name="territory/join" options={{ href: null }} />
         <Tabs.Screen name="territory/[activityId]" options={{ href: null }} />

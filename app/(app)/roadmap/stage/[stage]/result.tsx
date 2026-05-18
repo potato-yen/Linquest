@@ -20,7 +20,7 @@ export default function StageResult() {
 
   return (
     <ScreenScaffold scroll>
-      <Text variant="h1">{unlocked ? '解鎖下一關 ✓' : '本關未解鎖'}</Text>
+      <Text variant="h1">{unlocked ? '解鎖下一關' : '本關未解鎖'}</Text>
       <Card padding={5}>
         <Text variant="caption" color="muted">首輪正確率</Text>
         <Text variant="h1" style={{ color: unlocked ? color.brand.primary : color.accent.warm, marginTop: space[2] }}>
