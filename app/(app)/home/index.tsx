@@ -1,7 +1,7 @@
 // app/(app)/home/index.tsx
 import React, { useRef, useCallback } from 'react';
 import { View } from 'react-native';
-import { useFocusEffect, Redirect } from 'expo-router';
+import { useFocusEffect, Redirect, router } from 'expo-router';
 import { ScreenScaffold, Text, Skeleton, ErrorState } from '../../../lib/ui/components';
 import {
   TodayTaskCard, RoadmapProgressCard, BattleStatusCard, BattleStatusPlaceholderCard,
@@ -64,7 +64,7 @@ export default function Home() {
     const level = config.levels.find((l) => cur >= l.stage_start && cur <= l.stage_end);
     const levelLabel = level ? `Level ${level.level} (Stage ${level.stage_start}-${level.stage_end})` : `Stage ${cur}`;
     const levelProgress = level ? (cur - level.stage_start) / Math.max(1, (level.stage_end - level.stage_start + 1)) : 0;
-    return { stageLabel: `Roadmap Stage ${cur}`, levelLabel, levelProgress, battle };
+    return { nextStage: cur, stageLabel: `Stage ${cur}`, levelLabel, levelProgress, battle };
   }, [s.status === 'auth' ? s.user.id : null], { pollMs: 15_000 });
 
   // Re-fetch on focus so home progress card reflects the latest DB state.
@@ -84,7 +84,12 @@ export default function Home() {
         {state.status === 'loading' ? <Skeleton height={120} /> :
          state.status === 'error' ? <ErrorState error={state.error} onRetry={refresh} /> : (
           <>
-            <TodayTaskCard stageLabel={state.status === 'ready' ? state.data.stageLabel : ''} doneToday={0} totalToday={1} />
+            <TodayTaskCard
+              stageLabel={state.status === 'ready' ? state.data.stageLabel : ''}
+              onPress={() => {
+                if (state.status === 'ready') router.push(`/(app)/roadmap/stage/${state.data.nextStage}`);
+              }}
+            />
             {state.status === 'ready' && state.data.battle ? (
               <BattleStatusCard
                 activityName={state.data.battle.activityName}

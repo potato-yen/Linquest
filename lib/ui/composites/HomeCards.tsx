@@ -2,21 +2,28 @@
 import React from 'react';
 import { View } from 'react-native';
 import { Card, Text } from '../components';
+import { Pressable } from '../components/Pressable';
+import { Icon } from '../components/Icon';
 import { ProgressBar } from '../components/ProgressBar';
 import { space, color } from '../tokens';
 
-export function TodayTaskCard({ stageLabel, doneToday, totalToday }: { stageLabel: string; doneToday: number; totalToday: number }) {
+// "今日任務" is not a spec'd daily quota — there is no per-day progress data
+// (roadmap_progress only stores current_stage), so a done/total bar could
+// never fill. It is a plain tappable shortcut to the next stage.
+export function TodayTaskCard({ stageLabel, onPress }: { stageLabel: string; onPress: () => void }) {
   return (
-    <Card padding={4}>
-      <Text variant="caption" color="muted">今日任務</Text>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: space[2] }}>
-        <Text>{stageLabel}</Text>
-        <Text variant="num">{doneToday} / {totalToday}</Text>
-      </View>
-      <View style={{ marginTop: space[2] }}>
-        <ProgressBar progress={totalToday > 0 ? doneToday / totalToday : 0} />
-      </View>
-    </Card>
+    <Pressable onPress={onPress} accessibilityLabel="today-task">
+      <Card padding={4}>
+        <Text variant="caption" color="muted">今日任務</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: space[2] }}>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space[2] }}>
+            <Text color="muted">下一關</Text>
+            <Text variant="h3">{stageLabel}</Text>
+          </View>
+          <Icon name="chevron-right" size={20} color={color.text.muted} />
+        </View>
+      </Card>
+    </Pressable>
   );
 }
 
