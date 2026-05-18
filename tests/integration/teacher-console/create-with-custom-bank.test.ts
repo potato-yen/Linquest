@@ -37,7 +37,7 @@ describeIntegration('create_activity_with_custom_bank', () => {
     expect((bank as any).source).toBe('custom');
 
     const { data: questions } = await fixture.serviceSb.from('questions').select('id').eq('bank_id', bankId);
-    expect((questions ?? []).length).toBe(8);
+    expect((questions ?? []).length).toBe(18);
   });
 
   it('rejects a teacher who does not own the class', async () => {
@@ -91,5 +91,25 @@ describeIntegration('create_activity_with_custom_bank', () => {
     });
 
     expect(error?.message).toContain('INVALID_CUSTOM_BANK_ROWS');
+  });
+
+  it('rejects banks that are smaller than the largest territory challenge', async () => {
+    const fixture = await setupTeacherConsoleFixture();
+    const { error } = await fixture.teacherSb.rpc('create_activity_with_custom_bank', {
+      p_class_id: fixture.classId,
+      p_name: 'X',
+      p_ends_at: new Date(Date.now() + 7 * 864e5).toISOString(),
+      p_group_count: 3,
+      p_map_size_target: 60,
+      p_refresh_interval_hours: 12,
+      p_bank_name: 'b',
+      p_rows: Array.from({ length: 17 }, (_, index) => ({
+        prompt: `q${index}`,
+        correct_answer: `a${index}`,
+        meta: { part_of_speech: 'n.' },
+      })),
+    });
+
+    expect(error?.message).toContain('INSUFFICIENT_CUSTOM_BANK_ROWS');
   });
 });

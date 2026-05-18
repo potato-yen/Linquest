@@ -20,7 +20,7 @@ describeIntegration('createActivityWithCustomBank (wrapper)', () => {
       map_size_target: 60,
       refresh_interval_hours: 12,
       bank_name: 'wrapper-bank',
-      rows: Array.from({ length: 5 }, (_, i) => ({
+      rows: Array.from({ length: 18 }, (_, i) => ({
         prompt: `p${i}`,
         correct_answer: `a${i}`,
         meta: { part_of_speech: 'n.' },

@@ -18,6 +18,10 @@ const PROMPT_KEYS = ['中文', 'prompt'];
 const ANSWER_KEYS = ['英文', 'correct_answer', 'answer'];
 const POS_KEYS = ['詞性', 'pos', 'part_of_speech'];
 
+// Territory's largest authoritative challenge is reverse 3x (18 questions),
+// so custom banks must be at least this large.
+export const MIN_CUSTOM_BANK_ROWS = 18;
+
 // At least correct (1) + 3 distractors must be distinct to build a question.
 export const MIN_DISTINCT_ANSWERS = 4;
 

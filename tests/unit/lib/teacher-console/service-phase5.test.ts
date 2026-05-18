@@ -34,6 +34,13 @@ describe('createActivityWithCustomBank', () => {
       code: 'INVALID_CUSTOM_BANK_ROWS',
     });
   });
+
+  it('maps insufficient-bank-size RPC errors explicitly', async () => {
+    const sb = makeSb(async () => ({ data: null, error: { message: 'INSUFFICIENT_CUSTOM_BANK_ROWS' } }));
+    await expect(createActivityWithCustomBank(sb, input)).rejects.toMatchObject({
+      code: 'INSUFFICIENT_CUSTOM_BANK_ROWS',
+    });
+  });
 });
 
 describe('deleteActivity', () => {

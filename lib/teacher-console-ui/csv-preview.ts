@@ -1,4 +1,5 @@
 import {
+  MIN_CUSTOM_BANK_ROWS,
   parseCustomBankCsv,
   CustomBankCsvRow,
   MIN_DISTINCT_ANSWERS,
@@ -16,6 +17,12 @@ export function previewCsv(text: string): CsvPreview {
     const rows = parseCustomBankCsv(text);
     if (rows.length === 0) {
       return { ok: false, message: 'CSV 沒有任何題目資料列' };
+    }
+    if (rows.length < MIN_CUSTOM_BANK_ROWS) {
+      return {
+        ok: false,
+        message: `活動題庫至少需 ${MIN_CUSTOM_BANK_ROWS} 題，才足夠支援 territory 最大挑戰題數，目前只有 ${rows.length} 題`,
+      };
     }
     const distinct = new Set(rows.map((r) => r.correct_answer)).size;
     if (distinct < MIN_DISTINCT_ANSWERS) {

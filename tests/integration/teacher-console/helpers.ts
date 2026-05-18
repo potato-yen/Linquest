@@ -147,7 +147,7 @@ export async function seedCustomActivity(
 ): Promise<{ activityId: string; bankId: string }> {
   const payload =
     rows ??
-    Array.from({ length: 8 }, (_, index) => ({
+    Array.from({ length: 18 }, (_, index) => ({
       prompt: `custom-q-${index}`,
       correct_answer: `ans-${index}`,
       meta: { part_of_speech: 'n.' },
