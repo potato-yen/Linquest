@@ -6,7 +6,7 @@ const mockBack = jest.fn();
 const mockPush = jest.fn();
 const mockJoinActivityPresence = jest.fn();
 const mockLeaveActivityPresence = jest.fn();
-const mockGetActivityState = jest.fn(async () => ({
+const mockReadyActivityState = {
   activity_id: 'activity-1',
   status: 'active',
   next_refresh_at: '2026-05-18T12:00:00.000Z',
@@ -35,7 +35,8 @@ const mockGetActivityState = jest.fn(async () => ({
       last_taken_at: null,
     },
   ],
-}));
+};
+const mockGetActivityState = jest.fn(async () => mockReadyActivityState);
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ activityId: 'activity-1' }),
@@ -56,12 +57,12 @@ jest.mock('../../../lib/ui/session/useSession', () => ({
 }));
 
 jest.mock('../../../lib/territory/state', () => ({
-  getActivityState: (...args: unknown[]) => mockGetActivityState(...args),
+  getActivityState: (...args: any[]) => (mockGetActivityState as any)(...args),
 }));
 
 jest.mock('../../../lib/realtime-battle/presence', () => ({
-  joinActivityPresence: (...args: unknown[]) => mockJoinActivityPresence(...args),
-  leaveActivityPresence: (...args: unknown[]) => mockLeaveActivityPresence(...args),
+  joinActivityPresence: (...args: any[]) => (mockJoinActivityPresence as any)(...args),
+  leaveActivityPresence: (...args: any[]) => (mockLeaveActivityPresence as any)(...args),
   listOnlineOpponents: () => [],
 }));
 
@@ -128,6 +129,12 @@ jest.mock('../../../lib/ui/components/MapCanvas', () => ({
 
 jest.mock('../../../lib/supabase', () => ({
   getSupabaseClient: () => ({
+    channel: () => ({
+      on: () => ({
+        subscribe: () => ({ id: 'battle-presence' }),
+      }),
+    }),
+    removeChannel: jest.fn(),
     from: () => ({
       select: () => ({
         eq: () => ({
@@ -143,6 +150,7 @@ jest.mock('../../../lib/supabase', () => ({
 describe('MapScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetActivityState.mockResolvedValue(mockReadyActivityState);
   });
 
   it('keeps hook order stable when activity state loads', async () => {

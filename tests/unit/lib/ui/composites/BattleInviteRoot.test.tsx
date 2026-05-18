@@ -8,12 +8,12 @@ const mockBattleInviteToast = jest.fn(({ challengerName }: { challengerName: str
   const { Text: MockText } = require('react-native');
   return <MockText>{challengerName}</MockText>;
 });
-const mockMaybeSingle = jest.fn(async () => ({ data: null, error: null }));
-const mockSingle = jest.fn(async () => ({ data: null, error: null }));
+const mockMaybeSingle = jest.fn<Promise<any>, any[]>(async () => ({ data: null, error: null }));
+const mockSingle = jest.fn<Promise<any>, any[]>(async () => ({ data: null, error: null }));
 const mockSubscribe = jest.fn();
 const mockRemoveChannel = jest.fn();
 
-const mockChannel = {
+const mockChannel: any = {
   on: jest.fn().mockReturnThis(),
   subscribe: jest.fn(() => {
     mockSubscribe();
@@ -85,12 +85,12 @@ jest.mock('../../../../../lib/supabase', () => ({
 }));
 
 jest.mock('../../../../../lib/realtime-battle/service', () => ({
-  acceptBattleInvite: (...args: unknown[]) => mockAcceptBattleInvite(...args),
-  declineBattleInvite: (...args: unknown[]) => mockDeclineBattleInvite(...args),
+  acceptBattleInvite: mockAcceptBattleInvite,
+  declineBattleInvite: mockDeclineBattleInvite,
 }));
 
 jest.mock('../../../../../lib/ui/components/BattleInviteToast', () => ({
-  BattleInviteToast: (props: unknown) => mockBattleInviteToast(props),
+  BattleInviteToast: (props: { challengerName: string }) => mockBattleInviteToast(props),
 }));
 
 import { BattleInviteRoot, buildInviteDeadline } from '../../../../../lib/ui/composites/BattleInviteRoot';
@@ -133,15 +133,15 @@ describe('buildInviteDeadline', () => {
           created_at: '2026-05-18T10:00:00.000Z',
         },
         error: null,
-      })
+      } as any)
       .mockResolvedValueOnce({
         data: { groups: { color: '#7E3A5A' } },
         error: null,
-      });
+      } as any);
     mockSingle.mockResolvedValueOnce({
       data: { display_name: '對手 A' },
       error: null,
-    });
+    } as any);
 
     render(<BattleInviteRoot />);
 

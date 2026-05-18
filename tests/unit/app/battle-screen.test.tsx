@@ -62,12 +62,12 @@ jest.mock('../../../lib/ui/session/useSession', () => ({
 }));
 
 jest.mock('../../../lib/realtime-battle/room', () => ({
-  joinBattleRoom: (...args: unknown[]) => mockJoinBattleRoom(...args),
+  joinBattleRoom: (...args: any[]) => (mockJoinBattleRoom as any)(...args),
 }));
 
 jest.mock('../../../lib/realtime-battle/service', () => ({
-  heartbeatBattle: (...args: unknown[]) => mockHeartbeatBattle(...args),
-  submitBattleAnswer: (...args: unknown[]) => mockSubmitBattleAnswer(...args),
+  heartbeatBattle: (...args: any[]) => (mockHeartbeatBattle as any)(...args),
+  submitBattleAnswer: (...args: any[]) => (mockSubmitBattleAnswer as any)(...args),
 }));
 
 jest.mock('../../../lib/ui/components', () => ({
@@ -153,6 +153,8 @@ jest.mock('../../../lib/supabase', () => {
 describe('BattleModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockJoinBattleRoom.mockReturnValue({ id: 'battle-room' });
+    mockHeartbeatBattle.mockResolvedValue(undefined);
   });
 
   it('keeps hook order stable when loading resolves into a live battle', async () => {
