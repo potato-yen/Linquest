@@ -8,6 +8,7 @@ import {
   RoadmapConfig,
   RoadmapProgress,
   StageQuestion,
+  SubmitAttemptInput,
 } from './types';
 
 const DISTRACTOR_COUNT = 3;
@@ -59,6 +60,28 @@ export async function upsertProgress(
 
   if (error) throw error;
   return data as RoadmapProgress;
+}
+
+export async function submitRoadmapAttempt(
+  sb: SupabaseClient,
+  input: SubmitAttemptInput,
+): Promise<void> {
+  const { error } = await sb
+    .from('attempts')
+    .insert({
+      user_id: input.userId,
+      question_id: input.questionId,
+      activity_id: null,
+      context: 'roadmap',
+      tile_id: null,
+      battle_id: null,
+      is_correct: input.isCorrect,
+      response_ms: input.responseMs,
+    });
+
+  if (error) {
+    throw error;
+  }
 }
 
 export async function selectStageQuestions(

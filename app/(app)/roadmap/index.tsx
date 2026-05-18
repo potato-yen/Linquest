@@ -8,6 +8,7 @@ import { useScreenData } from '../../../lib/ui/hooks/useScreenData';
 import { useSession } from '../../../lib/ui/session/useSession';
 import { getSupabaseClient } from '../../../lib/supabase';
 import { getRoadmapBank, getProgress } from '../../../lib/roadmap/service';
+import { deriveRoadmapProgressState } from '../../../lib/roadmap/progress';
 import { stagePosition } from '../../../lib/ui/trail/trail-layout';
 import { space } from '../../../lib/ui/tokens';
 
@@ -48,9 +49,10 @@ export default function RoadmapScreen() {
   useEffect(() => {
     if (state.status !== 'ready') return;
     const { currentStage, lastStage } = state.data;
+    const progressState = deriveRoadmapProgressState(currentStage, lastStage);
     const h = Math.max(win.height * 1.4, lastStage * 80);
     const pos = stagePosition({
-      stage: currentStage,
+      stage: progressState.playableStage,
       lastStage,
       viewport: { width: win.width - space[4] * 2, height: h },
     });
@@ -65,25 +67,38 @@ export default function RoadmapScreen() {
   if (state.status === 'empty')   return <ScreenScaffold><Text>找不到題庫</Text></ScreenScaffold>;
 
   const { currentStage, lastStage } = state.data;
+  const progressState = deriveRoadmapProgressState(currentStage, lastStage);
   const trailHeight = Math.max(win.height * 1.4, lastStage * 80);
 
   return (
     <ScreenScaffold>
       <Text variant="h1">關卡進度</Text>
-      <Text color="muted">目前在第 {currentStage} 關，共 {lastStage} 關</Text>
+      <Text color="muted">
+        {progressState.isComplete
+          ? `已完成全部 ${lastStage} 關`
+          : `目前在第 ${currentStage} 關，共 ${lastStage} 關`}
+      </Text>
       <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: space[7] }}>
         <RoadmapTrail
           lastStage={lastStage}
-          currentStage={currentStage}
+          currentStage={progressState.playableStage}
           width={win.width - space[4] * 2}
           height={trailHeight}
           justUnlockedStage={justUnlockedRef.current}
           onPressStage={(stg) => {
-            if (stg <= currentStage) router.push(`/(app)/roadmap/stage/${stg}`);
+            if (stg <= progressState.playableStage) router.push(`/(app)/roadmap/stage/${stg}`);
           }}
         />
       </ScrollView>
-      <Button title={`開始第 ${currentStage} 關`} onPress={() => router.push(`/(app)/roadmap/stage/${currentStage}`)} />
+      <Button
+        title={progressState.isComplete ? '全部完成' : `開始第 ${currentStage} 關`}
+        disabled={progressState.isComplete}
+        onPress={() => {
+          if (!progressState.isComplete) {
+            router.push(`/(app)/roadmap/stage/${currentStage}`);
+          }
+        }}
+      />
     </ScreenScaffold>
   );
 }

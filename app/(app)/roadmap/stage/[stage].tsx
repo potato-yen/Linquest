@@ -9,10 +9,11 @@ import { QuestionCard } from '../../../../lib/ui/components/QuestionCard';
 import { FlashCard } from '../../../../lib/ui/components/FlashCard';
 import { useSession } from '../../../../lib/ui/session/useSession';
 import { useScreenData } from '../../../../lib/ui/hooks/useScreenData';
-import { selectStageQuestions, upsertProgress } from '../../../../lib/roadmap/service';
+import { selectStageQuestions, submitRoadmapAttempt, upsertProgress } from '../../../../lib/roadmap/service';
 import { AnsweringEngine } from '../../../../lib/answering/engine';
-import { Question } from '../../../../lib/answering/types';
+import { Attempt, Question } from '../../../../lib/answering/types';
 import { makeRoadmapHostHooks } from '../../../../lib/answering/adapters/roadmap';
+import { buildChoiceOrder } from '../../../../lib/answering/choices';
 import { shouldUnlock } from '../../../../lib/roadmap/unlock';
 import { getSupabaseClient } from '../../../../lib/supabase';
 import { space } from '../../../../lib/ui/tokens';
@@ -43,7 +44,7 @@ export default function StageScreen() {
   const choices = useMemo<{ pick: 'A' | 'B' | 'C' | 'D'; choice: string }[]>(() => {
     const q = eState.current;
     if (!q) return [];
-    return shuffle([q.correct_answer, ...q.distractors]).map((c, i) => ({
+    return buildChoiceOrder(q).map((c, i) => ({
       pick: 'ABCD'[i] as 'A' | 'B' | 'C' | 'D',
       choice: c,
     }));
@@ -53,6 +54,13 @@ export default function StageScreen() {
   useEffect(() => {
     if (state.status !== 'ready' || !userId) return;
     const hooks = makeRoadmapHostHooks({
+      onAttempt: (attempt: Attempt) =>
+        submitRoadmapAttempt(sb, {
+          userId: userId,
+          questionId: attempt.question_id,
+          isCorrect: attempt.is_correct,
+          responseMs: attempt.response_ms,
+        }),
       onFinish: (sum) => {
         // Save progress before navigating; fire-and-forget so navigation isn't blocked.
         const correct = sum.firstRoundResults.filter((a) => a.is_correct).length;
@@ -113,13 +121,4 @@ export default function StageScreen() {
       ) : null}
     </ScreenScaffold>
   );
-}
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }

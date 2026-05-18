@@ -2,9 +2,10 @@
 import { makeRoadmapHostHooks } from '../../../../../lib/answering/adapters/roadmap';
 
 describe('makeRoadmapHostHooks', () => {
-  it('returns enableRetry=true and onAttempt is a no-op that resolves', async () => {
+  it('returns enableRetry=true and forwards attempts to the supplied callback', async () => {
     const onFinish = jest.fn();
-    const hooks = makeRoadmapHostHooks({ onFinish });
+    const onAttempt = jest.fn();
+    const hooks = makeRoadmapHostHooks({ onFinish, onAttempt });
     expect(hooks.enableRetry).toBe(true);
     await expect(
       hooks.onAttempt({
@@ -14,6 +15,12 @@ describe('makeRoadmapHostHooks', () => {
         chosen: 'a',
       }),
     ).resolves.toBeUndefined();
+    expect(onAttempt).toHaveBeenCalledWith({
+      question_id: 'q1',
+      is_correct: true,
+      response_ms: 250,
+      chosen: 'a',
+    });
   });
 
   it('passes onFinish through unchanged', () => {
