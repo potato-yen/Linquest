@@ -23,8 +23,16 @@ export default function SignUp() {
   async function onSubmit() {
     setBusy(true); setErr(null);
     try {
-      await signUp(getSupabaseClient(), { email, password: pwd, display_name: name.trim(), role });
-      router.replace('/(auth)/sign-in');
+      const res = await signUp(getSupabaseClient(), { email, password: pwd, display_name: name.trim(), role });
+      if (res.session) {
+        // Email confirmation disabled → already signed in. Skip the sign-in
+        // screen; the session listener has the session, home routes by role.
+        router.replace('/(app)/home');
+      } else {
+        // Email confirmation required → can't auto-login until confirmed.
+        setErr('帳號已建立。請至信箱完成驗證後再登入。');
+        setTimeout(() => router.replace('/(auth)/sign-in'), 1500);
+      }
     } catch (e) {
       setErr(mapError(e).message);
     } finally {

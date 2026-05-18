@@ -15,6 +15,9 @@ export interface SignInInput {
 
 export interface SignUpResult {
   user_id: string;
+  // Present when the project has email confirmation disabled: the user is
+  // already signed in, so callers can skip the sign-in screen.
+  session: Session | null;
 }
 
 export async function signUp(
@@ -40,7 +43,7 @@ export async function signUp(
     throw new Error('signUp returned no user');
   }
 
-  return { user_id: data.user.id };
+  return { user_id: data.user.id, session: data.session ?? null };
 }
 
 export async function signIn(
