@@ -15,6 +15,16 @@ export interface RoadmapProgress {
   updated_at: string;
 }
 
+export interface RoadmapMastery {
+  user_id: string;
+  bank_id: string;
+  question_id: string;
+  mastery_level: number;
+  next_review_at: string;
+  last_interval_days: number;
+  updated_at: string;
+}
+
 export interface StageQuestion {
   id: string;
   prompt: string;
@@ -23,16 +33,16 @@ export interface StageQuestion {
   meta: {
     roadmap_level?: number;
     example_sentence?: string;
+    part_of_speech?: string;
     [key: string]: unknown;
   };
 }
 
 export interface SubmitAttemptInput {
-  userId: string; // Must equal auth.uid(); attempts RLS with-check enforces this.
-  questionId: string;
+  userId: string;
+  questionId: string; // Now refers to the stable string ID from the sheet
   isCorrect: boolean;
-  responseMs: number; // Frontend stopwatch value; attempts.response_ms has CHECK >= 0.
-  // attempts has no stage column. Add one via migration in v2 if stage-level attempt analytics become necessary.
+  responseMs: number;
 }
 
 export const ROADMAP_STAGE_QUESTION_COUNT = 15;

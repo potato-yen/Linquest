@@ -27,11 +27,11 @@ export default function StageScreen() {
 
   const { state, refresh } = useScreenData(async () => {
     if (s.status !== 'auth') return null;
-    const qs = await selectStageQuestions(stageNum);
+    const qs = await selectStageQuestions(s.user.id, stageNum);
     return { questions: qs.map((q) => ({
       id: q.id, prompt: q.prompt, correct_answer: q.correct_answer, distractors: q.distractors, meta: q.meta,
     } as Question)) };
-  }, [stageNum]);
+  }, [stageNum, userId]);
 
   const engine = useMemo(() => new AnsweringEngine(), []);
   const [, setTick] = useState(0);

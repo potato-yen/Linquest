@@ -25,23 +25,26 @@ export function rowsToQuestions(
 ): StageQuestion[] {
   if (rows.length === 0) return [];
 
-  // Detect whether row 0 is a named header (contains 'prompt' or 'answer').
-  // If neither is present, fall back to positional: col 0 = prompt, col 1 = answer.
   const headerRow = rows[0].map((h) => h.trim().toLowerCase());
-  const pFromHeader = headerRow.indexOf('prompt');
-  const aFromHeader = headerRow.indexOf('answer');
-  const hasAnyHeader = pFromHeader >= 0 || aFromHeader >= 0;
+  const idIdx = headerRow.indexOf('id');
+  const pFromHeader = headerRow.indexOf('prompt') >= 0 ? headerRow.indexOf('prompt') : headerRow.indexOf('中文');
+  const aFromHeader = headerRow.indexOf('answer') >= 0 ? headerRow.indexOf('answer') : headerRow.indexOf('英文');
+  const posFromHeader = headerRow.indexOf('part_of_speech') >= 0 ? headerRow.indexOf('part_of_speech') : headerRow.indexOf('詞性');
+
+  const hasAnyHeader = idIdx >= 0 || pFromHeader >= 0 || aFromHeader >= 0;
 
   if (hasAnyHeader) {
-    if (pFromHeader < 0) throw new Error(`sheet (Level${level}): missing column "prompt"`);
-    if (aFromHeader < 0) throw new Error(`sheet (Level${level}): missing column "answer"`);
+    if (pFromHeader < 0) throw new Error(`sheet (Level${level}): missing column "prompt" or "中文"`);
+    if (aFromHeader < 0) throw new Error(`sheet (Level${level}): missing column "answer" or "英文"`);
   }
 
-  const promptIdx = hasAnyHeader ? pFromHeader : 0;
-  const answerIdx = hasAnyHeader ? aFromHeader : 1;
+  const idColumnIdx = hasAnyHeader && idIdx >= 0 ? idIdx : -1;
+  const promptIdx = hasAnyHeader && pFromHeader >= 0 ? pFromHeader : (headerRow[0] === 'id' ? 1 : 0);
+  const answerIdx = hasAnyHeader && aFromHeader >= 0 ? aFromHeader : (headerRow[0] === 'id' ? 2 : 1);
+  const posIdx = hasAnyHeader && posFromHeader >= 0 ? posFromHeader : (headerRow[0] === 'id' ? 3 : -1);
   const startRow = hasAnyHeader ? 1 : 0;
 
-  // Optional named columns are only addressable when a header row exists.
+  // Optional named columns
   const exIdx   = hasAnyHeader ? headerRow.indexOf('example_sentence')   : -1;
   const exTrIdx = hasAnyHeader ? headerRow.indexOf('example_translation') : -1;
   const ipaIdx  = hasAnyHeader ? headerRow.indexOf('ipa')                 : -1;
@@ -49,11 +52,17 @@ export function rowsToQuestions(
   const out: StageQuestion[] = [];
   for (let r = startRow; r < rows.length; r += 1) {
     const cells = rows[r];
+    const rawId = idColumnIdx >= 0 ? (cells[idColumnIdx] ?? '').trim() : '';
     const prompt = (cells[promptIdx] ?? '').trim();
     const answer = (cells[answerIdx] ?? '').trim();
-    if (prompt === '' || answer === '') continue; // defensive: blank/trailing rows
+    if (prompt === '' || answer === '') continue;
+
+    const id = rawId || `sheet-L${level}-r${r}`;
 
     const meta: StageQuestion['meta'] = { roadmap_level: level };
+    if (posIdx >= 0 && (cells[posIdx] ?? '').trim() !== '') {
+      meta.part_of_speech = cells[posIdx].trim();
+    }
     if (exIdx >= 0 && (cells[exIdx] ?? '').trim() !== '') {
       meta.example_sentence = cells[exIdx].trim();
     }
@@ -66,7 +75,7 @@ export function rowsToQuestions(
     }
 
     out.push({
-      id: `sheet-L${level}-r${r}`,
+      id,
       prompt,
       correct_answer: answer,
       distractors: [],
