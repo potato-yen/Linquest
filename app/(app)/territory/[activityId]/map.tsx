@@ -99,6 +99,19 @@ export default function MapScreen() {
         .select('challenger_user_id, defender_user_id')
         .eq('activity_id', activityId)
         .in('status', ['pending_invite', 'in_progress']);
+
+      const amIBusy = (battles ?? []).some(
+        (b: any) => b.challenger_user_id === s.user.id || b.defender_user_id === s.user.id,
+      );
+
+      // Update our own presence state if it changed
+      void channel.track({
+        user_id: s.user.id,
+        group_id: resolvedGroupId,
+        in_battle: amIBusy,
+        last_active_at: new Date().toISOString(),
+      });
+
       const busyUsers = new Set<string>();
       (battles ?? []).forEach((battle: any) => {
         if (battle.challenger_user_id) busyUsers.add(battle.challenger_user_id);
@@ -117,13 +130,40 @@ export default function MapScreen() {
     };
     channel.on('presence', { event: 'sync' }, () => { void syncPresence(); });
     void syncPresence();
-    return () => { leaveActivityPresence(channel); };
+
+    // Reactive battle-busy filtering: refresh list when any battle in this activity changes
+    const battleChannel = sb
+      .channel(`battles-sync:${activityId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'battles',
+          filter: `activity_id=eq.${activityId}`,
+        },
+        () => {
+          void syncPresence();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      leaveActivityPresence(channel);
+      sb.removeChannel(battleChannel);
+    };
   }, [resolvedGroupId, s.status, activityId, sb]);
 
   const engine = useMemo(() => new AnsweringEngine(), []);
   const [answering, setAnswering] = useState<boolean>(false);
   const [, force] = useState(0);
   useEffect(() => engine.subscribe(() => force((x) => x + 1)), [engine]);
+
+  const answeringState = engine.state;
+  const answeringChoices = useMemo(() => {
+    if (!answeringState.current) return [];
+    return buildChoiceOrder(answeringState.current);
+  }, [answeringState.current?.id]);
 
   if (state.status === 'loading') return <ScreenScaffold><Skeleton height={400} /></ScreenScaffold>;
   if (state.status === 'error') return <ScreenScaffold><ErrorState error={state.error} onRetry={refresh} /></ScreenScaffold>;
@@ -210,12 +250,6 @@ export default function MapScreen() {
   }
 
   const myTileCount = data.tiles.filter((t) => t.owner_group_id === resolvedGroupId).length;
-
-  const answeringState = engine.state;
-  const answeringChoices = useMemo(() => {
-    if (!answeringState.current) return [];
-    return buildChoiceOrder(answeringState.current);
-  }, [answeringState.current?.id]);
 
   return (
     <ScreenScaffold>

@@ -126,6 +126,17 @@ export default function BattleModal() {
     questionStartedAt.current = Date.now();
   }, [row?.id, row?.current_index]);
 
+  const finished = row?.status === 'finished';
+  const aborted = row?.status === 'aborted';
+  const won = finished && row?.winner_user_id === s.user?.id;
+  const current = row?.status === 'in_progress'
+    ? questions[row?.current_index] ?? null
+    : null;
+  const currentChoices = useMemo(
+    () => (current ? buildChoiceOrder(current) : []),
+    [current?.id],
+  );
+
   if (error) {
     return (
       <ScreenScaffold>
@@ -154,17 +165,6 @@ export default function BattleModal() {
     score: oppScore,
     isMe: false,
   };
-
-  const finished = row.status === 'finished';
-  const aborted = row.status === 'aborted';
-  const won = finished && row.winner_user_id === s.user.id;
-  const current = row.status === 'in_progress'
-    ? questions[row.current_index] ?? null
-    : null;
-  const currentChoices = useMemo(
-    () => (current ? buildChoiceOrder(current) : []),
-    [current?.id],
-  );
 
   async function onChoose(choice: string) {
     if (!row || !current || !canSubmitBattleChoice(row, clientState)) {

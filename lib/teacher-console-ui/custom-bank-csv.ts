@@ -19,7 +19,9 @@ const ANSWER_KEYS = ['英文', 'correct_answer', 'answer'];
 const POS_KEYS = ['詞性', 'pos', 'part_of_speech'];
 
 // At least correct (1) + 3 distractors must be distinct to build a question.
-export const MIN_DISTINCT_ANSWERS = 4;
+// Territory challenges can require up to 18 questions; we set min to 20 to ensure
+// no duplicates and a healthy pool.
+export const MIN_DISTINCT_ANSWERS = 20;
 
 export function parseCustomBankCsv(csv: string): CustomBankCsvRow[] {
   // Strip a UTF-8 BOM — Excel "Save as CSV" prepends one, which would
