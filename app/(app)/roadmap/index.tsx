@@ -1,14 +1,15 @@
 // app/(app)/roadmap/index.tsx
 import React, { useRef, useEffect, useCallback } from 'react';
-import { ScrollView, useWindowDimensions } from 'react-native';
+import { ScrollView, useWindowDimensions, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ScreenScaffold, Text, Skeleton, ErrorState, Button } from '../../../lib/ui/components';
 import { RoadmapTrail } from '../../../lib/ui/components/RoadmapTrail';
 import { useScreenData } from '../../../lib/ui/hooks/useScreenData';
 import { useSession } from '../../../lib/ui/session/useSession';
 import { getSupabaseClient } from '../../../lib/supabase';
-import { getRoadmapBank, getProgress } from '../../../lib/roadmap/service';
+import { getRoadmapBank, getProgress, getDueCountsPerLevel } from '../../../lib/roadmap/service';
 import { deriveRoadmapProgressState } from '../../../lib/roadmap/progress';
+import { ROADMAP_CONFIG } from '../../../lib/roadmap/roadmap-config';
 import { stagePosition } from '../../../lib/ui/trail/trail-layout';
 import { space } from '../../../lib/ui/tokens';
 
@@ -33,9 +34,29 @@ export default function RoadmapScreen() {
   const { state, refresh } = useScreenData(async () => {
     if (s.status !== 'auth') return null;
     const bank = getRoadmapBank();
-    const progress = await getProgress(sb, s.user.id);
+    const [progress, dueCounts] = await Promise.all([
+      getProgress(sb, s.user.id),
+      getDueCountsPerLevel(sb, s.user.id),
+    ]);
     const lastStage = bank.config.levels.reduce((m, l) => Math.max(m, l.stage_end), 1);
-    return { bankId: bank.id, currentStage: progress?.current_stage ?? 1, lastStage };
+
+    // Map due levels to due stages
+    const dueStages = new Set<number>();
+    let totalDue = 0;
+    for (const [levelStr, count] of Object.entries(dueCounts)) {
+      const level = Number(levelStr);
+      if (count > 0) {
+        totalDue += count;
+        const mapping = ROADMAP_CONFIG.levels.find((l) => l.level === level);
+        if (mapping) {
+          for (let stg = mapping.stage_start; stg <= mapping.stage_end; stg++) {
+            dueStages.add(stg);
+          }
+        }
+      }
+    }
+
+    return { bankId: bank.id, currentStage: progress?.current_stage ?? 1, lastStage, dueStages, totalDue };
   }, [s.status === 'auth' ? s.user.id : null]);
 
   // Re-fetch whenever the tab comes back into focus so progress reflects DB truth.
@@ -66,18 +87,25 @@ export default function RoadmapScreen() {
   if (state.status === 'error')   return <ScreenScaffold><ErrorState error={state.error} onRetry={refresh} /></ScreenScaffold>;
   if (state.status === 'empty')   return <ScreenScaffold><Text>找不到題庫</Text></ScreenScaffold>;
 
-  const { currentStage, lastStage } = state.data;
+  const { currentStage, lastStage, dueStages, totalDue } = state.data;
   const progressState = deriveRoadmapProgressState(currentStage, lastStage);
   const trailHeight = Math.max(win.height * 1.4, lastStage * 80);
 
   return (
     <ScreenScaffold>
       <Text variant="h1">關卡進度</Text>
-      <Text color="muted">
-        {progressState.isComplete
-          ? `已完成全部 ${lastStage} 關`
-          : `目前在第 ${currentStage} 關，共 ${lastStage} 關`}
-      </Text>
+      <View style={{ marginBottom: space[2] }}>
+        <Text color="muted">
+          {progressState.isComplete
+            ? `已完成全部 ${lastStage} 關`
+            : `目前在第 ${currentStage} 關，共 ${lastStage} 關`}
+        </Text>
+        {totalDue > 0 && (
+          <Text color="brand" variant="label" style={{ marginTop: space[1] }}>
+            ✨ 有 {totalDue} 個單字該複習了！點擊有標記的關卡開始。
+          </Text>
+        )}
+      </View>
       <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: space[7] }}>
         <RoadmapTrail
           lastStage={lastStage}
@@ -85,6 +113,7 @@ export default function RoadmapScreen() {
           width={win.width - space[4] * 2}
           height={trailHeight}
           justUnlockedStage={justUnlockedRef.current}
+          dueStages={dueStages}
           onPressStage={(stg) => {
             if (stg <= progressState.playableStage) router.push(`/(app)/roadmap/stage/${stg}`);
           }}

@@ -19,11 +19,14 @@ const AnimatedG = Reanimated.createAnimatedComponent(G);
 const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
 const EASE = Easing.bezier(0.2, 0.8, 0.2, 1);
 
-function FlagBody({ x, y, stage }: { x: number; y: number; stage: number }) {
+function FlagBody({ x, y, stage, isDue }: { x: number; y: number; stage: number; isDue?: boolean }) {
   const p = PALETTE.current;
   return (
     <>
       <Circle cx={x} cy={y} r={p.r} fill={p.fill} stroke={p.stroke} strokeWidth={2} />
+      {isDue && (
+        <Circle cx={x + 7} cy={y - 7} r={4} fill={color.accent.warm} stroke={color.bg.base} strokeWidth={1} />
+      )}
       <SvgText x={x} y={y + 4} fontSize="10" fill={color.text.primary} textAnchor="middle">{stage}</SvgText>
     </>
   );
@@ -31,7 +34,7 @@ function FlagBody({ x, y, stage }: { x: number; y: number; stage: number }) {
 
 // Just-unlocked: scale 0.6→1 over 400ms ease-out + a golden halo whose
 // opacity rises then fades over 800ms (spec §7 stage.unlock).
-function UnlockedFlag({ x, y, stage }: { x: number; y: number; stage: number }) {
+function UnlockedFlag({ x, y, stage, isDue }: { x: number; y: number; stage: number; isDue?: boolean }) {
   const sc = useSharedValue(0.6);
   const halo = useSharedValue(0);
   useEffect(() => {
@@ -53,7 +56,7 @@ function UnlockedFlag({ x, y, stage }: { x: number; y: number; stage: number }) 
     <G>
       <AnimatedCircle cx={x} cy={y} r={20} fill="#D4AC4A" animatedProps={haloProps} />
       <AnimatedG animatedProps={gProps}>
-        <FlagBody x={x} y={y} stage={stage} />
+        <FlagBody x={x} y={y} stage={stage} isDue={isDue} />
       </AnimatedG>
     </G>
   );
@@ -61,7 +64,7 @@ function UnlockedFlag({ x, y, stage }: { x: number; y: number; stage: number }) 
 
 // Idle current stage: one gentle ±4px vertical hover after auto-scroll
 // brings it into view — a scroll hint (spec §7 trail.scrollHint).
-function HintFlag({ x, y, stage }: { x: number; y: number; stage: number }) {
+function HintFlag({ x, y, stage, isDue }: { x: number; y: number; stage: number; isDue?: boolean }) {
   const dy = useSharedValue(0);
   useEffect(() => {
     dy.value = withDelay(
@@ -76,23 +79,26 @@ function HintFlag({ x, y, stage }: { x: number; y: number; stage: number }) {
   const animatedProps = useAnimatedProps(() => ({ transform: [{ translateY: dy.value }] }));
   return (
     <AnimatedG animatedProps={animatedProps}>
-      <FlagBody x={x} y={y} stage={stage} />
+      <FlagBody x={x} y={y} stage={stage} isDue={isDue} />
     </AnimatedG>
   );
 }
 
-export function StageFlag({ x, y, stage, state, justUnlocked }: {
-  x: number; y: number; stage: number; state: StageState; justUnlocked?: boolean;
+export function StageFlag({ x, y, stage, state, justUnlocked, isDue }: {
+  x: number; y: number; stage: number; state: StageState; justUnlocked?: boolean; isDue?: boolean;
 }) {
   if (state === 'current') {
     return justUnlocked
-      ? <UnlockedFlag x={x} y={y} stage={stage} />
-      : <HintFlag x={x} y={y} stage={stage} />;
+      ? <UnlockedFlag x={x} y={y} stage={stage} isDue={isDue} />
+      : <HintFlag x={x} y={y} stage={stage} isDue={isDue} />;
   }
   const p = PALETTE[state];
   return (
     <G>
       <Circle cx={x} cy={y} r={p.r} fill={p.fill} stroke={p.stroke} strokeWidth={2} />
+      {isDue && (
+        <Circle cx={x + 5} cy={y - 5} r={3} fill={color.accent.warm} stroke={color.bg.base} strokeWidth={1} />
+      )}
     </G>
   );
 }

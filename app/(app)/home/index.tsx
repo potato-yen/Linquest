@@ -9,7 +9,7 @@ import {
 import { useSession } from '../../../lib/ui/session/useSession';
 import { useScreenData } from '../../../lib/ui/hooks/useScreenData';
 import { getSupabaseClient } from '../../../lib/supabase';
-import { getRoadmapBank, getProgress } from '../../../lib/roadmap/service';
+import { getRoadmapBank, getProgress, getDueCountsPerLevel } from '../../../lib/roadmap/service';
 import { getActivityState } from '../../../lib/territory/state';
 import { space } from '../../../lib/ui/tokens';
 
@@ -54,9 +54,10 @@ export default function Home() {
 
   const { state, refresh } = useScreenData(async () => {
     if (s.status !== 'auth') return null;
-    const [bank, progress, battle] = await Promise.all([
+    const [bank, progress, dueCounts, battle] = await Promise.all([
       Promise.resolve(getRoadmapBank()),
       getProgress(sb, s.user.id),
+      getDueCountsPerLevel(sb, s.user.id),
       fetchBattleStatus(sb, s.user.id),
     ]);
     const config = bank.config;
@@ -64,7 +65,8 @@ export default function Home() {
     const level = config.levels.find((l) => cur >= l.stage_start && cur <= l.stage_end);
     const levelLabel = level ? `Level ${level.level} (Stage ${level.stage_start}-${level.stage_end})` : `Stage ${cur}`;
     const levelProgress = level ? (cur - level.stage_start) / Math.max(1, (level.stage_end - level.stage_start + 1)) : 0;
-    return { nextStage: cur, stageLabel: `Stage ${cur}`, levelLabel, levelProgress, battle };
+    const hasDue = Object.values(dueCounts).some((c) => c > 0);
+    return { nextStage: cur, stageLabel: `Stage ${cur}`, levelLabel, levelProgress, battle, hasDue };
   }, [s.status === 'auth' ? s.user.id : null], { pollMs: 15_000 });
 
   // Re-fetch on focus so home progress card reflects the latest DB state.
@@ -86,6 +88,7 @@ export default function Home() {
           <>
             <TodayTaskCard
               stageLabel={state.status === 'ready' ? state.data.stageLabel : ''}
+              isDue={state.status === 'ready' ? state.data.hasDue : false}
               onPress={() => {
                 if (state.status === 'ready') router.push(`/(app)/roadmap/stage/${state.data.nextStage}`);
               }}

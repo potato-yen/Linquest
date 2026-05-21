@@ -89,6 +89,39 @@ export async function upsertProgress(
   return data as RoadmapProgress;
 }
 
+export async function getDueCountsPerLevel(
+  sb: SupabaseClient,
+  userId: string,
+): Promise<Record<number, number>> {
+  const bank = await loadSheetBank();
+  const now = new Date().toISOString();
+
+  const { data, error } = await sb
+    .from('roadmap_mastery')
+    .select('question_id, bank_id')
+    .eq('user_id', userId)
+    .eq('bank_id', ROADMAP_BANK_ID)
+    .lte('next_review_at', now);
+
+  if (error) throw error;
+
+  const dueCounts: Record<number, number> = {};
+  for (const lvlMapping of ROADMAP_CONFIG.levels) {
+    const lvl = lvlMapping.level;
+    dueCounts[lvl] = 0;
+    const questions = bank[lvl] ?? [];
+    const questionIds = new Set(questions.map((q) => q.id));
+
+    for (const row of data ?? []) {
+      if (questionIds.has(row.question_id)) {
+        dueCounts[lvl] += 1;
+      }
+    }
+  }
+
+  return dueCounts;
+}
+
 export async function submitRoadmapAttempt(
   sb: SupabaseClient,
   input: SubmitAttemptInput,

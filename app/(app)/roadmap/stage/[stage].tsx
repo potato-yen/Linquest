@@ -33,6 +33,9 @@ export default function StageScreen() {
     } as Question)) };
   }, [stageNum, userId]);
 
+  const [isPreviewing, setIsPreviewing] = useState(true);
+  const [previewIndex, setPreviewIndex] = useState(0);
+
   const engine = useMemo(() => new AnsweringEngine(), []);
   const [, setTick] = useState(0);
   useEffect(() => engine.subscribe(() => setTick((t) => t + 1)), [engine]);
@@ -50,9 +53,9 @@ export default function StageScreen() {
     }));
   }, [eState.current?.id]);
 
-  // Primitive deps only — see previous commit for the abort() → notify() loop explanation.
+  // Start engine only when preview is finished
   useEffect(() => {
-    if (state.status !== 'ready' || !userId) return;
+    if (state.status !== 'ready' || !userId || isPreviewing) return;
     const hooks = makeRoadmapHostHooks({
       onAttempt: (attempt: Attempt) =>
         submitRoadmapAttempt(sb, {
@@ -77,11 +80,41 @@ export default function StageScreen() {
     });
     engine.start({ questions: state.data.questions, ...hooks });
     return () => engine.abort();
-  }, [state.status, userId, engine, stageNum]);
+  }, [state.status, userId, engine, stageNum, isPreviewing]);
 
   if (state.status === 'loading') return <ScreenScaffold><Skeleton height={400} /></ScreenScaffold>;
   if (state.status === 'error')   return <ScreenScaffold><ErrorState error={state.error} onRetry={refresh} /></ScreenScaffold>;
   if (state.status === 'empty')   return <ScreenScaffold><Text>沒有題目</Text></ScreenScaffold>;
+
+  // Preview Mode
+  if (isPreviewing) {
+    const q = state.data.questions[previewIndex];
+    return (
+      <ScreenScaffold scroll>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text color="muted">Stage {stageNum}：預覽單字</Text>
+          <Text color="muted">{previewIndex + 1} / {state.data.questions.length}</Text>
+        </View>
+        <ProgressBar progress={(previewIndex + 1) / state.data.questions.length} />
+        
+        <View style={{ marginTop: space[4], marginBottom: space[4] }}>
+          <FlashCard question={q} showBoth={true} />
+        </View>
+
+        <View style={{ gap: space[3] }}>
+          {previewIndex < state.data.questions.length - 1 ? (
+            <Button title="下一個單字" onPress={() => setPreviewIndex(i => i + 1)} />
+          ) : (
+            <Button title="開始挑戰！" onPress={() => setIsPreviewing(false)} />
+          )}
+          {previewIndex > 0 && (
+            <Button title="上一個" variant="ghost" onPress={() => setPreviewIndex(i => i - 1)} />
+          )}
+          <Button title="跳過預覽" variant="ghost" onPress={() => setIsPreviewing(false)} />
+        </View>
+      </ScreenScaffold>
+    );
+  }
 
   if (!eState.current && eState.phase !== 'reveal') {
     return <ScreenScaffold><Skeleton height={300} /></ScreenScaffold>;

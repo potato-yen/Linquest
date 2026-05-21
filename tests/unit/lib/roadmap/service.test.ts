@@ -1,10 +1,14 @@
-import { calculateSpacedRepetition, submitRoadmapAttempt, ROADMAP_BANK_ID } from '../../../../lib/roadmap/service';
+import { calculateSpacedRepetition, submitRoadmapAttempt, ROADMAP_BANK_ID, getDueCountsPerLevel } from '../../../../lib/roadmap/service';
+import * as sheetSource from '../../../../lib/roadmap/sheet-source';
+
+jest.mock('../../../../lib/roadmap/sheet-source');
 
 function makeSb() {
   const insert = jest.fn().mockReturnValue({ error: null });
   const upsert = jest.fn().mockReturnValue({ error: null });
   const select = jest.fn().mockReturnValue({
     eq: jest.fn().mockReturnThis(),
+    lte: jest.fn().mockReturnThis(),
     maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
   });
 
@@ -68,5 +72,31 @@ describe('submitRoadmapAttempt', () => {
       question_id: 'L1_01',
       mastery_level: 1, // 0 -> 1
     }), expect.anything());
+  });
+});
+
+describe('getDueCountsPerLevel', () => {
+  it('returns count of due questions per level', async () => {
+    const sb = makeSb();
+    const mockBank = {
+      1: [{ id: 'Q1' }, { id: 'Q2' }],
+      2: [{ id: 'Q3' }],
+    };
+    (sheetSource.loadSheetBank as jest.Mock).mockResolvedValue(mockBank);
+
+    // Mock mastery data: Q1 and Q3 are due
+    (sb.select().lte as jest.Mock).mockResolvedValue({
+      data: [
+        { question_id: 'Q1', bank_id: ROADMAP_BANK_ID },
+        { question_id: 'Q3', bank_id: ROADMAP_BANK_ID },
+      ],
+      error: null,
+    });
+
+    const counts = await getDueCountsPerLevel(sb as any, 'user-1');
+
+    expect(counts[1]).toBe(1); // Q1 is due, Q2 is not
+    expect(counts[2]).toBe(1); // Q3 is due
+    expect(counts[3]).toBe(0); // Level 3 doesn't exist in mock bank or mastery
   });
 });

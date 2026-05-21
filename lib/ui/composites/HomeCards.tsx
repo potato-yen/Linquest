@@ -10,11 +10,18 @@ import { space, color } from '../tokens';
 // "今日任務" is not a spec'd daily quota — there is no per-day progress data
 // (roadmap_progress only stores current_stage), so a done/total bar could
 // never fill. It is a plain tappable shortcut to the next stage.
-export function TodayTaskCard({ stageLabel, onPress }: { stageLabel: string; onPress: () => void }) {
+export function TodayTaskCard({ stageLabel, onPress, isDue }: { stageLabel: string; onPress: () => void; isDue?: boolean }) {
   return (
     <Pressable onPress={onPress} accessibilityLabel="today-task">
-      <Card padding={4}>
-        <Text variant="caption" color="muted">今日任務</Text>
+      <Card padding={4} style={isDue ? { borderColor: color.accent.warm, borderWidth: 1 } : undefined}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text variant="caption" color="muted">今日任務</Text>
+          {isDue && (
+            <View style={{ backgroundColor: color.accent.warm, paddingHorizontal: space[2], paddingVertical: 2, borderRadius: 10 }}>
+              <Text variant="caption" style={{ color: color.bg.base, fontSize: 9 }}>待複習</Text>
+            </View>
+          )}
+        </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: space[2] }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space[2] }}>
             <Text color="muted">下一關</Text>

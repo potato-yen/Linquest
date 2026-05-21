@@ -7,11 +7,19 @@ import { Text } from './Text';
 import { color, radius, space } from '../tokens';
 import { Question } from '../../answering/types';
 
-export function FlashCard({ question, isCorrect }: { question: Question; isCorrect: boolean }) {
+export function FlashCard({ question, isCorrect, showBoth }: { question: Question; isCorrect?: boolean; showBoth?: boolean }) {
+  const borderColor = showBoth ? color.brand.primary : (isCorrect ? '#D4AC4A' : color.accent.warm);
   return (
-    <View style={[styles.card, { borderColor: isCorrect ? '#D4AC4A' : color.accent.warm }]}>
+    <View style={[styles.card, { borderColor }]}>
       <Text variant="caption" color="muted">FLASH CARD</Text>
-      <Text variant="h2" style={{ marginTop: space[1] }}>{question.correct_answer}</Text>
+      
+      <View style={{ marginTop: space[1], gap: space[2] }}>
+        <Text variant="h2">{question.correct_answer}</Text>
+        {showBoth && (
+          <Text variant="h3" color="secondary" style={{ fontStyle: 'italic' }}>{question.prompt}</Text>
+        )}
+      </View>
+
       {question.meta?.ipa ? <Text variant="caption" color="muted" style={{ fontStyle: 'italic' }}>{question.meta.ipa}</Text> : null}
       {question.meta?.example_sentence ? (
         <Text variant="body" style={{ marginTop: space[2] }}>{question.meta.example_sentence}</Text>
