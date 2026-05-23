@@ -20,13 +20,14 @@ export function BattleInviteRoot() {
 
   useEffect(() => {
     if (s.status !== 'auth') return;
+    const userId = s.user.id;
 
     // Initial hydration: check for existing pending invites
     async function fetchInitialInvite() {
       const { data: battles } = await sb
         .from('battles')
         .select('*')
-        .eq('defender_user_id', s.user.id)
+        .eq('defender_user_id', userId)
         .eq('status', 'pending_invite')
         .order('created_at', { ascending: false })
         .limit(1);
@@ -62,14 +63,14 @@ export function BattleInviteRoot() {
     fetchInitialInvite();
 
     const channel = sb
-      .channel(`invites:${s.user.id}`)
+      .channel(`invites:${userId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'battles',
-          filter: `defender_user_id=eq.${s.user.id}`,
+          filter: `defender_user_id=eq.${userId}`,
         },
         async (payload) => {
           const b = payload.new as BattleRow;

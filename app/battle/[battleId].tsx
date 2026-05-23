@@ -36,6 +36,7 @@ export default function BattleModal() {
   const [error, setError] = useState<string | null>(null);
   const [clientState, setClientState] = useState(createBattleClientState);
   const questionStartedAt = useRef<number>(Date.now());
+  const viewerUserId = s.status === 'auth' ? s.user.id : null;
 
   // Realtime room subscription — updates row whenever battle changes
   useEffect(() => {
@@ -128,7 +129,7 @@ export default function BattleModal() {
 
   const finished = row?.status === 'finished';
   const aborted = row?.status === 'aborted';
-  const won = finished && row?.winner_user_id === s.user?.id;
+  const won = finished && row?.winner_user_id === viewerUserId;
   const current = row?.status === 'in_progress'
     ? questions[row?.current_index] ?? null
     : null;
