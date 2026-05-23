@@ -37,7 +37,7 @@ describeIntegration('create_activity_with_custom_bank', () => {
     expect((bank as any).source).toBe('custom');
 
     const { data: questions } = await fixture.serviceSb.from('questions').select('id').eq('bank_id', bankId);
-    expect((questions ?? []).length).toBe(8);
+    expect((questions ?? []).length).toBe(20);
   });
 
   it('rejects a teacher who does not own the class', async () => {

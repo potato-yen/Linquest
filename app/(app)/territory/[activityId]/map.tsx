@@ -207,10 +207,22 @@ export default function MapScreen() {
         byDifficulty.length >= spec.question_count ? byDifficulty : fullPool;
       const answerPool = fullPool.map((q) => q.correct_answer);
 
+      if (sourcePool.length < spec.question_count) {
+        await resolveChallenge(sb, {
+          activity_id: activityId,
+          challenge_id,
+          tile_id: activeTile.id,
+          kind: spec.kind,
+          all_correct: false,
+          spec,
+        });
+        throw new Error(
+          `題庫題數不足（需要 ${spec.question_count} 題，僅有 ${sourcePool.length} 題）`,
+        );
+      }
+
       const picked = shuffle(sourcePool).slice(0, spec.question_count);
-      const base: Question[] = picked.length >= spec.question_count
-        ? picked
-        : sourcePool.slice(0, spec.question_count);
+      const base: Question[] = picked;
 
       // Custom-bank questions carry placeholder distractors + a 詞性 in
       // meta — sample real distractors and compose the prompt as 中文（詞性）.
