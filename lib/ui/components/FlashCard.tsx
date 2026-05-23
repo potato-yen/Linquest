@@ -1,32 +1,65 @@
-// lib/ui/components/FlashCard.tsx
-// Spec §11 #1 — flash card behaviour TBD pending user discussion with classmate.
-// This strawman renders meta.example_sentence + IPA + translation if present.
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from './Text';
-import { color, radius, space } from '../tokens';
+import { Icon } from './Icon';
+import { color, radius, shadow, space } from '../tokens';
 import { Question } from '../../answering/types';
 
-export function FlashCard({ question, isCorrect, showBoth }: { question: Question; isCorrect?: boolean; showBoth?: boolean }) {
-  const borderColor = showBoth ? color.brand.primary : (isCorrect ? '#D4AC4A' : color.accent.warm);
+export interface FlashCardProps {
+  question: Question;
+  isCorrect?: boolean;
+  showBoth?: boolean;
+}
+
+function getResultLabel(isCorrect?: boolean): string {
+  if (isCorrect === true) return '答對了';
+  if (isCorrect === false) return '再看一次';
+  return '單字預覽';
+}
+
+function getResultColor(isCorrect?: boolean): string {
+  if (isCorrect === true) return '#D4AC4A';
+  if (isCorrect === false) return color.accent.warm;
+  return color.brand.primary;
+}
+
+export function FlashCard({ question, isCorrect, showBoth }: FlashCardProps) {
+  const accentColor = getResultColor(showBoth ? undefined : isCorrect);
+  const exampleSentence = question.meta?.example_sentence;
+  const exampleTranslation = question.meta?.example_translation;
+  const ipa = question.meta?.ipa;
+
   return (
-    <View style={[styles.card, { borderColor }]}>
-      <Text variant="caption" color="muted">FLASH CARD</Text>
-      
-      <View style={{ marginTop: space[1], gap: space[2] }}>
-        <Text variant="h2">{question.correct_answer}</Text>
+    <View style={[styles.card, { borderColor: accentColor }]}>
+      <View style={styles.header}>
+        <View style={[styles.badge, { backgroundColor: accentColor }]}>
+          <Icon name="check" size={16} color={color.text.onPrimary} />
+        </View>
+        <Text variant="caption" color="muted">{getResultLabel(showBoth ? undefined : isCorrect)}</Text>
+      </View>
+
+      <View style={styles.wordBlock}>
+        <Text variant="h2" style={styles.answer}>{question.correct_answer}</Text>
+        {ipa ? <Text variant="caption" color="muted" style={styles.ipa}>{ipa}</Text> : null}
         {showBoth && (
-          <Text variant="h3" color="secondary" style={{ fontStyle: 'italic' }}>{question.prompt}</Text>
+          <Text variant="h3" color="secondary" style={styles.prompt}>{question.prompt}</Text>
         )}
       </View>
 
-      {question.meta?.ipa ? <Text variant="caption" color="muted" style={{ fontStyle: 'italic' }}>{question.meta.ipa}</Text> : null}
-      {question.meta?.example_sentence ? (
-        <Text variant="body" style={{ marginTop: space[2] }}>{question.meta.example_sentence}</Text>
-      ) : null}
-      {question.meta?.example_translation ? (
-        <Text variant="caption" color="secondary" style={{ marginTop: space[1] }}>{question.meta.example_translation}</Text>
-      ) : null}
+      {exampleSentence ? (
+        <View style={styles.example}>
+          <Text variant="caption" color="muted">例句</Text>
+          <Text variant="body">{exampleSentence}</Text>
+          {exampleTranslation ? (
+            <Text variant="label" color="secondary">{exampleTranslation}</Text>
+          ) : null}
+        </View>
+      ) : (
+        <View style={styles.example}>
+          <Text variant="caption" color="muted">意思</Text>
+          <Text variant="body">{question.prompt}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -34,7 +67,42 @@ export function FlashCard({ question, isCorrect, showBoth }: { question: Questio
 const styles = StyleSheet.create({
   card: {
     backgroundColor: color.bg.surface,
-    borderWidth: 1.5, borderRadius: radius.lg,
-    padding: space[4], gap: space[1],
+    borderWidth: 1.5,
+    borderRadius: radius.md,
+    padding: space[4],
+    gap: space[3],
+    ...shadow.soft,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
+  badge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wordBlock: {
+    gap: space[1],
+  },
+  answer: {
+    textAlign: 'left',
+  },
+  ipa: {
+    fontStyle: 'italic',
+    textTransform: 'none',
+    letterSpacing: 0,
+  },
+  prompt: {
+    fontStyle: 'italic',
+  },
+  example: {
+    borderTopWidth: 1,
+    borderTopColor: color.bg.sunken,
+    paddingTop: space[3],
+    gap: space[1],
   },
 });
