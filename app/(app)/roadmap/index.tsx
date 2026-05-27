@@ -2,7 +2,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { ScrollView, useWindowDimensions, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { ScreenScaffold, Text, Skeleton, ErrorState, Button } from '../../../lib/ui/components';
+import { ScreenScaffold, Text, Skeleton, ErrorState, Button, Card } from '../../../lib/ui/components';
 import { RoadmapTrail } from '../../../lib/ui/components/RoadmapTrail';
 import { useScreenData } from '../../../lib/ui/hooks/useScreenData';
 import { useSession } from '../../../lib/ui/session/useSession';
@@ -11,7 +11,7 @@ import { getRoadmapBank, getProgress, getDueCountsPerLevel } from '../../../lib/
 import { deriveRoadmapProgressState } from '../../../lib/roadmap/progress';
 import { ROADMAP_CONFIG } from '../../../lib/roadmap/roadmap-config';
 import { stagePosition } from '../../../lib/ui/trail/trail-layout';
-import { space } from '../../../lib/ui/tokens';
+import { color, radius, space } from '../../../lib/ui/tokens';
 
 export default function RoadmapScreen() {
   const s = useSession();
@@ -90,22 +90,54 @@ export default function RoadmapScreen() {
   const { currentStage, lastStage, dueStages, totalDue } = state.data;
   const progressState = deriveRoadmapProgressState(currentStage, lastStage);
   const trailHeight = Math.max(win.height * 1.4, lastStage * 80);
+  const completedStages = progressState.isComplete ? lastStage : Math.max(0, currentStage - 1);
+  const progressRatio = lastStage > 0 ? completedStages / lastStage : 0;
 
   return (
     <ScreenScaffold>
-      <Text variant="h1">關卡進度</Text>
-      <View style={{ marginBottom: space[2] }}>
-        <Text color="muted">
-          {progressState.isComplete
-            ? `已完成全部 ${lastStage} 關`
-            : `目前在第 ${currentStage} 關，共 ${lastStage} 關`}
-        </Text>
+      <Card padding={4} style={{ gap: space[3], borderWidth: 1, borderColor: color.bg.muted }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: space[3], alignItems: 'flex-start' }}>
+          <View style={{ flex: 1 }}>
+            <Text variant="caption" color="brand">Roadmap</Text>
+            <Text variant="h1">關卡進度</Text>
+            <Text color="muted">
+              {progressState.isComplete
+                ? `已完成全部 ${lastStage} 關`
+                : `目前在第 ${currentStage} 關，共 ${lastStage} 關`}
+            </Text>
+          </View>
+          <View
+            style={{
+              minWidth: 76,
+              borderRadius: radius.md,
+              backgroundColor: color.bg.muted,
+              paddingHorizontal: space[3],
+              paddingVertical: space[2],
+              alignItems: 'center',
+            }}
+          >
+            <Text variant="num">{Math.round(progressRatio * 100)}%</Text>
+            <Text variant="caption" color="muted">完成</Text>
+          </View>
+        </View>
+        <View style={{ height: 8, borderRadius: 4, backgroundColor: color.bg.sunken, overflow: 'hidden' }}>
+          <View style={{ width: `${Math.round(progressRatio * 100)}%`, height: '100%', backgroundColor: color.brand.primary }} />
+        </View>
         {totalDue > 0 && (
-          <Text color="brand" variant="label" style={{ marginTop: space[1] }}>
-            ✨ 有 {totalDue} 個單字該複習了！點擊有標記的關卡開始。
-          </Text>
+          <View
+            style={{
+              borderRadius: radius.md,
+              backgroundColor: color.accent.warmMuted,
+              paddingHorizontal: space[3],
+              paddingVertical: space[2],
+            }}
+          >
+            <Text color="warm" variant="label">
+              有 {totalDue} 個單字該複習了。點擊有紅色標記的關卡開始。
+            </Text>
+          </View>
         )}
-      </View>
+      </Card>
       <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: space[7] }}>
         <RoadmapTrail
           lastStage={lastStage}
