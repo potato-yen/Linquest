@@ -10,6 +10,7 @@ coverage/
 supabase/.branches/
 supabase/.temp/
 .DS_Store
+*.log
 
 .claude/
 .superpowers/
