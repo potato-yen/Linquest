@@ -1,5 +1,6 @@
 import { Session, SupabaseClient } from '@supabase/supabase-js';
 import { AuthUser, Role } from './types';
+import { parseAppError } from '../errors';
 
 export interface SignUpInput {
   email: string;
@@ -36,11 +37,11 @@ export async function signUp(
   });
 
   if (error) {
-    throw error;
+    throw parseAppError('AUTH', error);
   }
 
   if (!data.user) {
-    throw new Error('signUp returned no user');
+    throw parseAppError('AUTH', 'signUp returned no user');
   }
 
   return { user_id: data.user.id, session: data.session ?? null };
@@ -53,7 +54,7 @@ export async function signIn(
   const { data, error } = await sb.auth.signInWithPassword(input);
 
   if (error) {
-    throw error;
+    throw parseAppError('AUTH', error);
   }
 
   return data.session;
@@ -63,7 +64,7 @@ export async function signOut(sb: SupabaseClient): Promise<void> {
   const { error } = await sb.auth.signOut();
 
   if (error) {
-    throw error;
+    throw parseAppError('AUTH', error);
   }
 }
 
@@ -80,7 +81,7 @@ export async function updateDisplayName(
   } = await sb.auth.getSession();
   const uid = session?.user.id;
   if (!uid) {
-    throw new Error('not authenticated');
+    throw parseAppError('AUTH', 'NOT_AUTHENTICATED');
   }
 
   const { error } = await sb
@@ -89,7 +90,7 @@ export async function updateDisplayName(
     .eq('id', uid);
 
   if (error) {
-    throw error;
+    throw parseAppError('AUTH', error);
   }
 }
 
@@ -112,7 +113,7 @@ export async function getCurrentUser(
     .single();
 
   if (error) {
-    throw error;
+    throw parseAppError('AUTH', error);
   }
 
   return data as AuthUser;

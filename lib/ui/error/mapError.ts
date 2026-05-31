@@ -1,5 +1,7 @@
 // lib/ui/error/mapError.ts
-export type ScreenErrorKind = 'network' | 'auth' | 'server' | 'unknown';
+import { AppError, getErrorMessage } from '../../errors';
+
+export type ScreenErrorKind = 'network' | 'auth' | 'server' | 'unknown' | 'domain';
 
 export interface ScreenError {
   kind: ScreenErrorKind;
@@ -7,7 +9,7 @@ export interface ScreenError {
   cause?: unknown;          // dev only — never surface to UI
 }
 
-const MESSAGES: Record<ScreenErrorKind, string> = {
+const MESSAGES: Record<Exclude<ScreenErrorKind, 'domain'>, string> = {
   network: '網路連線異常，請檢查網路後重試。',
   auth: '登入狀態已失效，請重新登入。',
   server: '伺服器暫時無法回應，請稍後再試。',
@@ -15,6 +17,13 @@ const MESSAGES: Record<ScreenErrorKind, string> = {
 };
 
 export function mapError(raw: unknown): ScreenError {
+  if (raw instanceof AppError) {
+    return {
+      kind: 'domain',
+      message: getErrorMessage(raw.code, raw.message),
+      cause: raw,
+    };
+  }
   if (raw instanceof TypeError && /network/i.test(raw.message)) {
     return { kind: 'network', message: MESSAGES.network, cause: raw };
   }

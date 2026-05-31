@@ -97,6 +97,31 @@ export interface TeacherConsoleAccuracy {
   };
 }
 
+export interface TeacherConsoleLiveEvent {
+  id: string;
+  occurred_at: string;
+  event_type: string;
+  user_id: string | null;
+  user_display_name: string | null;
+  group_id: string | null;
+  group_name: string | null;
+  group_color: string | null;
+  tile_id: string | null;
+  score_delta: number;
+  payload: Record<string, any>;
+}
+
+export interface TeacherConsoleStudentStat {
+  user_id: string;
+  display_name: string;
+  group_name: string | null;
+  group_color: string | null;
+  total_attempts: number;
+  correct_attempts: number;
+  accuracy: number;
+  last_active_at: string | null;
+}
+
 export interface TeacherConsoleSettlementRankingRow {
   group_id: string;
   name: string;

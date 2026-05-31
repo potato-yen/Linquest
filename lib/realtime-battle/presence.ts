@@ -21,15 +21,6 @@ export function joinActivityPresence(
     },
   });
 
-  channel.subscribe(async (status) => {
-    if (status === 'SUBSCRIBED') {
-      await channel.track({
-        ...entry,
-        last_active_at: new Date().toISOString(),
-      });
-    }
-  });
-
   return channel;
 }
 

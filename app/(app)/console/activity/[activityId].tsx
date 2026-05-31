@@ -21,11 +21,14 @@ import {
   publishActivity,
   endActivityNow,
   deleteActivity,
+  getActivityLiveFeed,
+  getActivityStudentStats,
 } from '../../../../lib/teacher-console/service';
 import { activityScreenState, deleteConfirmPlan } from '../../../../lib/teacher-console-ui';
 import { teacherConsoleErrorMessage } from '../../../../lib/teacher-console/errors';
 import { mapError } from '../../../../lib/ui/error/mapError';
 import { space } from '../../../../lib/ui/tokens';
+import { LiveFeed, StudentStatsTable } from '../../../../lib/ui/components';
 
 type DraftData = {
   screen: 'draft';
@@ -36,12 +39,15 @@ type ActiveData = {
   screen: 'active';
   summary: Awaited<ReturnType<typeof listMyActivities>>[number];
   dashboard: Awaited<ReturnType<typeof getActivityDashboard>>;
+  liveFeed: Awaited<ReturnType<typeof getActivityLiveFeed>>;
+  studentStats: Awaited<ReturnType<typeof getActivityStudentStats>>;
 };
 
 type EndedData = {
   screen: 'ended';
   summary: Awaited<ReturnType<typeof listMyActivities>>[number];
   settlement: Awaited<ReturnType<typeof getActivitySettlement>>;
+  studentStats: Awaited<ReturnType<typeof getActivityStudentStats>>;
 };
 
 type ActivityDetailData = DraftData | ActiveData | EndedData;
@@ -53,6 +59,7 @@ export default function ActivityDetail() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [delStep, setDelStep] = useState<0 | 1 | 2>(0);
+  const [activeTab, setActiveTab] = useState<'ranking' | 'feed' | 'students'>('ranking');
 
   const { state, refresh } = useScreenData<ActivityDetailData>(
     async (_signal) => {
@@ -62,11 +69,18 @@ export default function ActivityDetail() {
       const screen = activityScreenState(summary.status);
       if (screen === 'draft') return { screen, summary } as const;
       if (screen === 'active') {
-        const dashboard = await getActivityDashboard(sb, activityId!);
-        return { screen, summary, dashboard } as const;
+        const [dashboard, liveFeed, studentStats] = await Promise.all([
+          getActivityDashboard(sb, activityId!),
+          getActivityLiveFeed(sb, activityId!),
+          getActivityStudentStats(sb, activityId!),
+        ]);
+        return { screen, summary, dashboard, liveFeed, studentStats } as const;
       }
-      const settlement = await getActivitySettlement(sb, activityId!);
-      return { screen, summary, settlement } as const;
+      const [settlement, studentStats] = await Promise.all([
+        getActivitySettlement(sb, activityId!),
+        getActivityStudentStats(sb, activityId!),
+      ]);
+      return { screen, summary, settlement, studentStats } as const;
     },
     [activityId],
     { pollMs: 5000 },
@@ -143,32 +157,62 @@ export default function ActivityDetail() {
               中立 {(d as ActiveData).dashboard.map_summary.neutral_count} · 特殊 {(d as ActiveData).dashboard.map_summary.special_count} · 倍率 {(d as ActiveData).dashboard.map_summary.multiplier_count} / 共 {(d as ActiveData).dashboard.map_summary.total_tiles}
             </Text>
           </Card>
-          <SettlementBoard
-            title="財政榜（國庫）"
-            rankings={[...(d as ActiveData).dashboard.groups]
-              .sort((a, b) => b.treasury - a.treasury)
-              .map((g, i) => ({
-                group_id: g.id,
-                name: g.name,
-                color: g.color,
-                rank: i + 1,
-                value: g.treasury,
-              }))}
-            valueLabel="treasury"
-          />
-          <SettlementBoard
-            title="領地榜"
-            rankings={[...(d as ActiveData).dashboard.groups]
-              .sort((a, b) => b.owned_count - a.owned_count)
-              .map((g, i) => ({
-                group_id: g.id,
-                name: g.name,
-                color: g.color,
-                rank: i + 1,
-                value: g.owned_count,
-              }))}
-            valueLabel="tiles"
-          />
+
+          <View style={{ flexDirection: 'row', gap: space[2], marginTop: space[4], marginBottom: space[2] }}>
+            <Button
+              title="排行"
+              variant={activeTab === 'ranking' ? 'primary' : 'ghost'}
+              onPress={() => setActiveTab('ranking')}
+              size="sm"
+            />
+            <Button
+              title="動態"
+              variant={activeTab === 'feed' ? 'primary' : 'ghost'}
+              onPress={() => setActiveTab('feed')}
+              size="sm"
+            />
+            <Button
+              title="學生"
+              variant={activeTab === 'students' ? 'primary' : 'ghost'}
+              onPress={() => setActiveTab('students')}
+              size="sm"
+            />
+          </View>
+
+          {activeTab === 'ranking' && (
+            <>
+              <SettlementBoard
+                title="財政榜（國庫）"
+                rankings={[...(d as ActiveData).dashboard.groups]
+                  .sort((a, b) => b.treasury - a.treasury)
+                  .map((g, i) => ({
+                    group_id: g.id,
+                    name: g.name,
+                    color: g.color,
+                    rank: i + 1,
+                    value: g.treasury,
+                  }))}
+                valueLabel="treasury"
+              />
+              <SettlementBoard
+                title="領地榜"
+                rankings={[...(d as ActiveData).dashboard.groups]
+                  .sort((a, b) => b.owned_count - a.owned_count)
+                  .map((g, i) => ({
+                    group_id: g.id,
+                    name: g.name,
+                    color: g.color,
+                    rank: i + 1,
+                    value: g.owned_count,
+                  }))}
+                valueLabel="tiles"
+              />
+            </>
+          )}
+
+          {activeTab === 'feed' && <LiveFeed events={(d as ActiveData).liveFeed} />}
+          {activeTab === 'students' && <StudentStatsTable stats={(d as ActiveData).studentStats} />}
+
           <View style={{ marginTop: space[3] }}>
             <Button title="提前結束活動" variant="ghost" onPress={() => setDialog('end')} />
           </View>
@@ -178,42 +222,63 @@ export default function ActivityDetail() {
       {d.screen === 'ended' && (
         <>
           <SectionHeader title="結算" />
-          <SettlementBoard
-            title="財政榜（最終）"
-            rankings={(d as EndedData).settlement.rankings_treasury.map((r) => ({
-              group_id: r.group_id,
-              name: r.name,
-              color: r.color,
-              rank: r.rank,
-              value: r.treasury,
-            }))}
-            valueLabel="treasury"
-          />
-          <SettlementBoard
-            title="領地榜（最終）"
-            rankings={(d as EndedData).settlement.rankings_territory.map((r) => ({
-              group_id: r.group_id,
-              name: r.name,
-              color: r.color,
-              rank: r.rank,
-              value: r.owned_count,
-            }))}
-            valueLabel="tiles"
-          />
-          <SectionHeader title="常錯題 TOP" />
-          {(d as EndedData).settlement.common_mistakes.map((m) => (
-            <Card key={m.question_id} style={{ marginTop: space[2] }}>
-              <Text>{m.prompt}</Text>
-              <Text color="muted">錯 {m.wrong_count} 次</Text>
-            </Card>
-          ))}
-          <SectionHeader title="正確率" />
-          <Card>
-            <Text>整體 {((d as EndedData).settlement.accuracy.overall.accuracy * 100).toFixed(0)}%</Text>
-            <Text color="muted">
-              領地 {((d as EndedData).settlement.accuracy.by_context.territory.accuracy * 100).toFixed(0)}% · 對戰 {((d as EndedData).settlement.accuracy.by_context.battle.accuracy * 100).toFixed(0)}%
-            </Text>
-          </Card>
+          <View style={{ flexDirection: 'row', gap: space[2], marginBottom: space[2] }}>
+            <Button
+              title="排名"
+              variant={activeTab !== 'students' ? 'primary' : 'ghost'}
+              onPress={() => setActiveTab('ranking')}
+              size="sm"
+            />
+            <Button
+              title="學生表現"
+              variant={activeTab === 'students' ? 'primary' : 'ghost'}
+              onPress={() => setActiveTab('students')}
+              size="sm"
+            />
+          </View>
+
+          {activeTab !== 'students' ? (
+            <>
+              <SettlementBoard
+                title="財政榜（最終）"
+                rankings={(d as EndedData).settlement.rankings_treasury.map((r) => ({
+                  group_id: r.group_id,
+                  name: r.name,
+                  color: r.color,
+                  rank: r.rank,
+                  value: r.treasury,
+                }))}
+                valueLabel="treasury"
+              />
+              <SettlementBoard
+                title="領地榜（最終）"
+                rankings={(d as EndedData).settlement.rankings_territory.map((r) => ({
+                  group_id: r.group_id,
+                  name: r.name,
+                  color: r.color,
+                  rank: r.rank,
+                  value: r.owned_count,
+                }))}
+                valueLabel="tiles"
+              />
+              <SectionHeader title="常錯題 TOP" />
+              {(d as EndedData).settlement.common_mistakes.map((m) => (
+                <Card key={m.question_id} style={{ marginTop: space[2] }}>
+                  <Text>{m.prompt}</Text>
+                  <Text color="muted">錯 {m.wrong_count} 次</Text>
+                </Card>
+              ))}
+              <SectionHeader title="正確率" />
+              <Card>
+                <Text>整體 {((d as EndedData).settlement.accuracy.overall.accuracy * 100).toFixed(0)}%</Text>
+                <Text color="muted">
+                  領地 {((d as EndedData).settlement.accuracy.by_context.territory.accuracy * 100).toFixed(0)}% · 對戰 {((d as EndedData).settlement.accuracy.by_context.battle.accuracy * 100).toFixed(0)}%
+                </Text>
+              </Card>
+            </>
+          ) : (
+            <StudentStatsTable stats={(d as EndedData).studentStats} />
+          )}
         </>
       )}
 

@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { AppError, DomainNamespace, parseAppError } from './errors';
 
 let client: SupabaseClient | null = null;
 
@@ -34,6 +35,26 @@ export function getSupabaseClient(): SupabaseClient {
   });
 
   return client;
+}
+
+export async function performSbCall<T>(
+  sb: SupabaseClient,
+  namespace: DomainNamespace,
+  call: () => Promise<{ data: T | null; error: any }>,
+): Promise<T> {
+  const { data, error } = await call();
+  if (error) {
+    throw parseAppError(namespace, error);
+  }
+  return data as T;
+}
+
+export async function ensureAuth(sb: SupabaseClient): Promise<string> {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session?.user.id) {
+    throw new AppError('AUTH', 'NOT_AUTHENTICATED', 'not authenticated');
+  }
+  return session.user.id;
 }
 
 export function resetSupabaseClientForTesting() {

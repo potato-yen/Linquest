@@ -30,3 +30,5 @@ export * from './RankRow';
 export * from './DialogPrompt';
 export * from './PromptDialog';
 export * from './SettlementBoard';
+export * from './LiveFeed';
+export * from './StudentStatsTable';

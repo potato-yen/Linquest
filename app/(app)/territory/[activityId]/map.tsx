@@ -128,8 +128,10 @@ export default function MapScreen() {
       }));
       setPresenceList(enriched);
     };
-    channel.on('presence', { event: 'sync' }, () => { void syncPresence(); });
-    void syncPresence();
+
+    channel.on('presence', { event: 'sync' }, () => {
+      void syncPresence();
+    });
 
     // Reactive battle-busy filtering: refresh list when any battle in this activity changes
     const battleChannel = sb
@@ -145,8 +147,15 @@ export default function MapScreen() {
         () => {
           void syncPresence();
         },
-      )
-      .subscribe();
+      );
+
+    // Subscribe to both after setting up listeners
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        void syncPresence();
+      }
+    });
+    battleChannel.subscribe();
 
     return () => {
       leaveActivityPresence(channel);
