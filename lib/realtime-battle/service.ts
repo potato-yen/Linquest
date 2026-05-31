@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { BattleError, parseBattleRpcCode } from './errors';
+import { performSbCall } from '../supabase';
+import { parseBattleRpcCode } from './errors';
 import { BattleAnswerResult } from './types';
 
 export interface SendBattleInviteInput {
@@ -19,63 +20,54 @@ export async function sendBattleInvite(
   sb: SupabaseClient,
   input: SendBattleInviteInput,
 ): Promise<string> {
-  const { data, error } = await sb.rpc('send_battle_invite', {
-    p_activity_id: input.activity_id,
-    p_tile_id: input.tile_id,
-    p_defender_user_id: input.defender_user_id,
-  });
-
-  if (error) {
-    throw new BattleError(parseBattleRpcCode(error.message), error.message, error);
-  }
-
-  return data as string;
+  return performSbCall(sb, 'BATTLE', async () =>
+    sb.rpc('send_battle_invite', {
+      p_activity_id: input.activity_id,
+      p_tile_id: input.tile_id,
+      p_defender_user_id: input.defender_user_id,
+    }),
+    parseBattleRpcCode
+  );
 }
 
 export async function acceptBattleInvite(sb: SupabaseClient, battleId: string): Promise<void> {
-  const { error } = await sb.rpc('accept_battle_invite', {
-    p_battle_id: battleId,
-  });
-
-  if (error) {
-    throw new BattleError(parseBattleRpcCode(error.message), error.message, error);
-  }
+  await performSbCall(sb, 'BATTLE', async () =>
+    sb.rpc('accept_battle_invite', {
+      p_battle_id: battleId,
+    }),
+    parseBattleRpcCode
+  );
 }
 
 export async function declineBattleInvite(sb: SupabaseClient, battleId: string): Promise<void> {
-  const { error } = await sb.rpc('decline_battle_invite', {
-    p_battle_id: battleId,
-  });
-
-  if (error) {
-    throw new BattleError(parseBattleRpcCode(error.message), error.message, error);
-  }
+  await performSbCall(sb, 'BATTLE', async () =>
+    sb.rpc('decline_battle_invite', {
+      p_battle_id: battleId,
+    }),
+    parseBattleRpcCode
+  );
 }
 
 export async function submitBattleAnswer(
   sb: SupabaseClient,
   input: SubmitBattleAnswerInput,
 ): Promise<BattleAnswerResult> {
-  const { data, error } = await sb.rpc('submit_battle_answer', {
-    p_battle_id: input.battle_id,
-    p_question_index: input.question_index,
-    p_choice: input.choice,
-    p_response_ms: input.response_ms,
-  });
-
-  if (error) {
-    throw new BattleError(parseBattleRpcCode(error.message), error.message, error);
-  }
-
-  return data as BattleAnswerResult;
+  return performSbCall(sb, 'BATTLE', async () =>
+    sb.rpc('submit_battle_answer', {
+      p_battle_id: input.battle_id,
+      p_question_index: input.question_index,
+      p_choice: input.choice,
+      p_response_ms: input.response_ms,
+    }),
+    parseBattleRpcCode
+  );
 }
 
 export async function heartbeatBattle(sb: SupabaseClient, battleId: string): Promise<void> {
-  const { error } = await sb.rpc('heartbeat_battle', {
-    p_battle_id: battleId,
-  });
-
-  if (error) {
-    throw new BattleError(parseBattleRpcCode(error.message), error.message, error);
-  }
+  await performSbCall(sb, 'BATTLE', async () =>
+    sb.rpc('heartbeat_battle', {
+      p_battle_id: battleId,
+    }),
+    parseBattleRpcCode
+  );
 }

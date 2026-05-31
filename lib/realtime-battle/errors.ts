@@ -7,6 +7,7 @@ export class BattleError extends AppError {
   }
 }
 
-export function parseBattleRpcCode(error: unknown): AppError {
-  return parseAppError('BATTLE', error);
+export function parseBattleRpcCode(error: unknown): BattleError {
+  const appErr = parseAppError('BATTLE', error);
+  return new BattleError(appErr.code, appErr.message, appErr.detail);
 }

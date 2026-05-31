@@ -41,9 +41,13 @@ export async function performSbCall<T>(
   sb: SupabaseClient,
   namespace: DomainNamespace,
   call: () => Promise<{ data: T | null; error: any }>,
+  customParser?: (error: any) => AppError,
 ): Promise<T> {
   const { data, error } = await call();
   if (error) {
+    if (customParser) {
+      throw customParser(error);
+    }
     throw parseAppError(namespace, error);
   }
   return data as T;

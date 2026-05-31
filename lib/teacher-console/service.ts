@@ -12,8 +12,10 @@ import {
   TeacherConsoleAccuracy,
   TeacherConsoleActivitySettings,
   TeacherConsoleDashboard,
+  TeacherConsoleLiveEvent,
   TeacherConsoleMistakeRow,
   TeacherConsoleSettlement,
+  TeacherConsoleStudentStat,
   TeacherActivitySummary,
 } from './types';
 
@@ -21,7 +23,7 @@ export async function createActivityDraft(
   sb: SupabaseClient,
   input: ActivityDraftInput,
 ): Promise<string> {
-  return performSbCall(sb, 'TEACHER_CONSOLE', () =>
+  return performSbCall(sb, 'TEACHER_CONSOLE', async () =>
     sb.rpc('create_activity_draft', {
       p_class_id: input.class_id,
       p_name: input.name,
@@ -30,7 +32,8 @@ export async function createActivityDraft(
       p_group_count: input.group_count,
       p_map_size_target: input.map_size_target,
       p_refresh_interval_hours: input.refresh_interval_hours,
-    })
+    }),
+    parseTeacherConsoleRpcCode
   );
 }
 
@@ -38,10 +41,11 @@ export async function listMyActivities(
   sb: SupabaseClient,
   classId?: string,
 ): Promise<TeacherActivitySummary[]> {
-  const data = await performSbCall<TeacherActivitySummary[] | null>(sb, 'TEACHER_CONSOLE', () =>
+  const data = await performSbCall<TeacherActivitySummary[] | null>(sb, 'TEACHER_CONSOLE', async () =>
     sb.rpc('list_my_activities', {
       p_class_id: classId ?? null,
-    })
+    }),
+    parseTeacherConsoleRpcCode
   );
   return data ?? [];
 }
@@ -50,10 +54,11 @@ export async function endActivityNow(
   sb: SupabaseClient,
   activityId: string,
 ): Promise<void> {
-  await performSbCall(sb, 'TEACHER_CONSOLE', () =>
+  await performSbCall(sb, 'TEACHER_CONSOLE', async () =>
     sb.rpc('end_activity_now', {
       p_activity_id: activityId,
-    })
+    }),
+    parseTeacherConsoleRpcCode
   );
 }
 
@@ -61,10 +66,11 @@ export async function getActivityDashboard(
   sb: SupabaseClient,
   activityId: string,
 ): Promise<TeacherConsoleDashboard> {
-  return performSbCall(sb, 'TEACHER_CONSOLE', () =>
+  return performSbCall(sb, 'TEACHER_CONSOLE', async () =>
     sb.rpc('get_activity_dashboard', {
       p_activity_id: activityId,
-    })
+    }),
+    parseTeacherConsoleRpcCode
   );
 }
 
@@ -73,11 +79,12 @@ export async function getActivityCommonMistakes(
   activityId: string,
   limit = 10,
 ): Promise<TeacherConsoleMistakeRow[]> {
-  const data = await performSbCall<TeacherConsoleMistakeRow[] | null>(sb, 'TEACHER_CONSOLE', () =>
+  const data = await performSbCall<TeacherConsoleMistakeRow[] | null>(sb, 'TEACHER_CONSOLE', async () =>
     sb.rpc('get_activity_common_mistakes', {
       p_activity_id: activityId,
       p_limit: limit,
-    })
+    }),
+    parseTeacherConsoleRpcCode
   );
   return data ?? [];
 }
@@ -86,10 +93,11 @@ export async function getActivityAccuracy(
   sb: SupabaseClient,
   activityId: string,
 ): Promise<TeacherConsoleAccuracy> {
-  return performSbCall(sb, 'TEACHER_CONSOLE', () =>
+  return performSbCall(sb, 'TEACHER_CONSOLE', async () =>
     sb.rpc('get_activity_accuracy', {
       p_activity_id: activityId,
-    })
+    }),
+    parseTeacherConsoleRpcCode
   );
 }
 
@@ -97,10 +105,11 @@ export async function getActivitySettlement(
   sb: SupabaseClient,
   activityId: string,
 ): Promise<TeacherConsoleSettlement> {
-  return performSbCall(sb, 'TEACHER_CONSOLE', () =>
+  return performSbCall(sb, 'TEACHER_CONSOLE', async () =>
     sb.rpc('get_activity_settlement', {
       p_activity_id: activityId,
-    })
+    }),
+    parseTeacherConsoleRpcCode
   );
 }
 
@@ -109,11 +118,12 @@ export async function getActivityLiveFeed(
   activityId: string,
   limit = 50,
 ): Promise<TeacherConsoleLiveEvent[]> {
-  const data = await performSbCall<TeacherConsoleLiveEvent[] | null>(sb, 'TEACHER_CONSOLE', () =>
+  const data = await performSbCall<TeacherConsoleLiveEvent[] | null>(sb, 'TEACHER_CONSOLE', async () =>
     sb.rpc('get_activity_live_feed', {
       p_activity_id: activityId,
       p_limit: limit,
-    })
+    }),
+    parseTeacherConsoleRpcCode
   );
   return data ?? [];
 }
@@ -122,10 +132,11 @@ export async function getActivityStudentStats(
   sb: SupabaseClient,
   activityId: string,
 ): Promise<TeacherConsoleStudentStat[]> {
-  const data = await performSbCall<TeacherConsoleStudentStat[] | null>(sb, 'TEACHER_CONSOLE', () =>
+  const data = await performSbCall<TeacherConsoleStudentStat[] | null>(sb, 'TEACHER_CONSOLE', async () =>
     sb.rpc('get_activity_student_stats', {
       p_activity_id: activityId,
-    })
+    }),
+    parseTeacherConsoleRpcCode
   );
   return data ?? [];
 }
@@ -153,10 +164,11 @@ export async function publishActivity(
 
     await runRefreshWave(sb, activityId, territoryParams);
 
-    await performSbCall(sb, 'TEACHER_CONSOLE', () =>
+    await performSbCall(sb, 'TEACHER_CONSOLE', async () =>
       sb.rpc('finalize_activity_publish', {
         p_activity_id: activityId,
-      })
+      }),
+      parseTeacherConsoleRpcCode
     );
   } catch (error) {
     const code = error instanceof TeacherConsoleError
@@ -184,10 +196,11 @@ async function snapshotClassAndCreateGroups(
   sb: SupabaseClient,
   activityId: string,
 ): Promise<PublishGroupRow[]> {
-  const data = await performSbCall<PublishGroupRow[] | null>(sb, 'TEACHER_CONSOLE', () =>
+  const data = await performSbCall<PublishGroupRow[] | null>(sb, 'TEACHER_CONSOLE', async () =>
     sb.rpc('snapshot_class_and_create_groups', {
       p_activity_id: activityId,
-    })
+    }),
+    parseTeacherConsoleRpcCode
   );
   return data ?? [];
 }
@@ -196,10 +209,11 @@ async function rollbackActivityPublish(
   sb: SupabaseClient,
   activityId: string,
 ): Promise<void> {
-  await performSbCall(sb, 'TEACHER_CONSOLE', () =>
+  await performSbCall(sb, 'TEACHER_CONSOLE', async () =>
     sb.rpc('rollback_activity_publish', {
       p_activity_id: activityId,
-    })
+    }),
+    parseTeacherConsoleRpcCode
   );
 }
 
@@ -258,7 +272,7 @@ export async function createActivityWithCustomBank(
   sb: SupabaseClient,
   input: CreateActivityWithCustomBankInput,
 ): Promise<string> {
-  return performSbCall(sb, 'TEACHER_CONSOLE', () =>
+  return performSbCall(sb, 'TEACHER_CONSOLE', async () =>
     sb.rpc('create_activity_with_custom_bank', {
       p_class_id: input.class_id,
       p_name: input.name,
@@ -268,7 +282,8 @@ export async function createActivityWithCustomBank(
       p_refresh_interval_hours: input.refresh_interval_hours,
       p_bank_name: input.bank_name,
       p_rows: input.rows,
-    })
+    }),
+    parseTeacherConsoleRpcCode
   );
 }
 
@@ -276,7 +291,8 @@ export async function deleteActivity(
   sb: SupabaseClient,
   activityId: string,
 ): Promise<void> {
-  await performSbCall(sb, 'TEACHER_CONSOLE', () =>
-    sb.rpc('delete_activity', { p_activity_id: activityId })
+  await performSbCall(sb, 'TEACHER_CONSOLE', async () =>
+    sb.rpc('delete_activity', { p_activity_id: activityId }),
+    parseTeacherConsoleRpcCode
   );
 }

@@ -368,7 +368,7 @@ describe('teacher-console service', () => {
   });
 
   it('maps phase 5 RPC error codes', () => {
-    expect(parseTeacherConsoleRpcCode('INVALID_CUSTOM_BANK_ROWS')).toBe('INVALID_CUSTOM_BANK_ROWS');
-    expect(parseTeacherConsoleRpcCode('ACTIVITY_NOT_FOUND')).toBe('ACTIVITY_NOT_FOUND');
+    expect(parseTeacherConsoleRpcCode('INVALID_CUSTOM_BANK_ROWS').code).toBe('INVALID_CUSTOM_BANK_ROWS');
+    expect(parseTeacherConsoleRpcCode('ACTIVITY_NOT_FOUND').code).toBe('ACTIVITY_NOT_FOUND');
   });
 });

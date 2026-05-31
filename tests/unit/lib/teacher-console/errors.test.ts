@@ -7,11 +7,11 @@ import {
 describe('parseTeacherConsoleRpcCode', () => {
   it('extracts a known code embedded in an RPC message', () => {
     expect(
-      parseTeacherConsoleRpcCode('... NOT_ENOUGH_MEMBERS ...'),
+      parseTeacherConsoleRpcCode('... NOT_ENOUGH_MEMBERS ...').code,
     ).toBe('NOT_ENOUGH_MEMBERS');
   });
   it('falls back to UNKNOWN for unrecognised text', () => {
-    expect(parseTeacherConsoleRpcCode('boom')).toBe(
+    expect(parseTeacherConsoleRpcCode('boom').code).toBe(
       'UNKNOWN_TEACHER_CONSOLE_ERROR',
     );
   });

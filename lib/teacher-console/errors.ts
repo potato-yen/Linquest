@@ -7,8 +7,10 @@ export class TeacherConsoleError extends AppError {
   }
 }
 
-export function parseTeacherConsoleRpcCode(error: unknown): AppError {
-  return parseAppError('TEACHER_CONSOLE', error);
+export function parseTeacherConsoleRpcCode(error: unknown): TeacherConsoleError {
+  const appErr = parseAppError('TEACHER_CONSOLE', error);
+  const code = appErr.code === 'UNKNOWN_ERROR' ? 'UNKNOWN_TEACHER_CONSOLE_ERROR' : appErr.code;
+  return new TeacherConsoleError(code, appErr.message, appErr.detail);
 }
 
 export function teacherConsoleErrorMessage(error: unknown): string | null {
