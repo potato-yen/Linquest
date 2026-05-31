@@ -15,6 +15,9 @@ import { getSupabaseClient } from '../../../../lib/supabase';
 import { getActivityState } from '../../../../lib/territory/state';
 import { attemptCapture, resolveChallenge } from '../../../../lib/territory/arbitrator';
 import { computeTileRender } from '../../../../lib/territory-ui/tile-state';
+import { isAdjacent } from '../../../../lib/territory/coords';
+import { resolveChallengeSpec } from '../../../../lib/territory/challenge-spec';
+import { TERRITORY_DEFAULTS } from '../../../../lib/territory/types';
 import { joinActivityPresence, leaveActivityPresence, listOnlineOpponents } from '../../../../lib/realtime-battle/presence';
 import { sendBattleInvite } from '../../../../lib/realtime-battle/service';
 import { buildChoiceOrder } from '../../../../lib/answering/choices';
@@ -174,13 +177,36 @@ export default function MapScreen() {
     return buildChoiceOrder(answeringState.current);
   }, [answeringState.current?.id]);
 
+  const activeTile = useMemo(() => {
+    if (state.status !== 'ready') return null;
+    return activeTileId ? state.data.tiles.find((t) => t.id === activeTileId) ?? null : null;
+  }, [activeTileId, state]);
+
+  const tileSpec = useMemo(() => {
+    if (!activeTile || !resolvedGroupId || activeTile.kind === 'special') return null;
+    try {
+      return resolveChallengeSpec(activeTile, resolvedGroupId, TERRITORY_DEFAULTS);
+    } catch {
+      return null;
+    }
+  }, [activeTile, resolvedGroupId]);
+
+  const attackable = useMemo(() => {
+    if (!tileSpec || !activeTile || !resolvedGroupId || state.status !== 'ready') return false;
+    // Adjacency check: must own the tile itself (self-recapture) OR an adjacent tile
+    const isSelfOwned = activeTile.owner_group_id === resolvedGroupId;
+    const hasAdjacentOwned = state.data.tiles.some(
+      (t) => t.owner_group_id === resolvedGroupId && isAdjacent(t, activeTile)
+    );
+    return isSelfOwned || hasAdjacentOwned;
+  }, [tileSpec, activeTile, resolvedGroupId, state]);
+
   if (state.status === 'loading') return <ScreenScaffold><Skeleton height={400} /></ScreenScaffold>;
   if (state.status === 'error') return <ScreenScaffold><ErrorState error={state.error} onRetry={refresh} /></ScreenScaffold>;
   if (state.status === 'empty') return <ScreenScaffold><Text>找不到活動</Text></ScreenScaffold>;
 
   const data = state.data;
   const myGroup = data.groups.find((g) => g.id === resolvedGroupId);
-  const activeTile = activeTileId ? data.tiles.find((t) => t.id === activeTileId) ?? null : null;
 
   async function onAttack() {
     if (!activeTile) return;
@@ -332,9 +358,9 @@ export default function MapScreen() {
                   ? data.groups.find((g) => g.id === activeTile.owner_group_id)?.color
                   : undefined
               }
-              costLabel="—"
-              rewardLabel="—"
-              attackable={!!resolvedGroupId}
+              costLabel={tileSpec ? tileSpec.cost.toString() : '—'}
+              rewardLabel={tileSpec ? tileSpec.success_reward.toString() : '—'}
+              attackable={attackable}
               onAttack={onAttack}
               specialDisabled={false}
             />

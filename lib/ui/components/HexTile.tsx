@@ -52,24 +52,24 @@ function HexTileImpl({ cx, cy, tileId, render: r, groupColor, onPress }: HexTile
         onPress={onPress ? () => onPress(tileId) : undefined}
       />
       {r.isCooldown ? (
-        <G>
+        <G pointerEvents="none">
           <Polygon points={verts} fill={tileTok.cooldownMask.color} fillOpacity={tileTok.cooldownMask.alpha} />
           <Polygon points={verts} fill="url(#cooldown-stripes)" />
         </G>
       ) : null}
       {r.isCapital ? (
-        <SvgText x={cx} y={cy + 4} fontSize="11" fill={color.text.onPrimary} textAnchor="middle">★</SvgText>
+        <SvgText x={cx} y={cy + 4} fontSize="11" fill={color.text.onPrimary} textAnchor="middle" pointerEvents="none">★</SvgText>
       ) : null}
       {r.isMultiplier && r.multiplier ? (
-        <SvgText x={cx} y={cy + 4} fontSize="9" fill={color.text.primary} textAnchor="middle">×{r.multiplier}</SvgText>
+        <SvgText x={cx} y={cy + 4} fontSize="9" fill={color.text.primary} textAnchor="middle" pointerEvents="none">×{r.multiplier}</SvgText>
       ) : null}
       {r.isSpecial ? (
-        <G>
+        <G pointerEvents="none">
           <Polygon points={`${cx},${cy - 8} ${cx + 7},${cy - 5} ${cx},${cy - 2}`} fill={tileTok.specialBadge.color} />
         </G>
       ) : null}
       {r.hasActiveChallenge ? (
-        <Circle cx={cx} cy={cy + HEX_SIZE / 2 + 2} r={2} fill="#D4AC4A" />
+        <Circle cx={cx} cy={cy + HEX_SIZE / 2 + 2} r={2} fill="#D4AC4A" pointerEvents="none" />
       ) : null}
     </G>
   );

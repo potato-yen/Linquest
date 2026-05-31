@@ -194,6 +194,7 @@ export function MapCanvas({ tiles, groups, myGroupId, width, height, onTilePress
             strokeWidth={2}
             fill="none"
             strokeOpacity={rp.anim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] })}
+            pointerEvents="none"
           />
         ))}
         {/* Refresh-wave glow: 3 stacked circles fake a soft blur — works on
@@ -211,6 +212,7 @@ export function MapCanvas({ tiles, groups, myGroupId, width, height, onTilePress
               r={ring.r}
               fill={tileTok.refreshGlow.color}
               fillOpacity={g.anim.interpolate({ inputRange: [0, 1], outputRange: [ring.o, 0] })}
+              pointerEvents="none"
             />
           )),
         )}
