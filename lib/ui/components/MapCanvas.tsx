@@ -12,6 +12,11 @@ import { color, tile as tileTok } from '../tokens';
 import type { HexTile as HexTileRow } from '../../territory/types';
 import { TerritoryBg } from '../illustrations/scenes';
 import { supportsAnimatedCooldownPattern } from './map-canvas-support';
+import {
+  clampMapScale,
+  clampMapTranslation,
+  getMapPanLimits,
+} from './map-canvas-viewport';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedPattern = Reanimated.createAnimatedComponent(Pattern);
@@ -132,112 +137,155 @@ export function MapCanvas({ tiles, groups, myGroupId, width, height, onTilePress
   const pinch = Gesture.Pinch()
     .onStart(() => { baseScale.value = scale.value; })
     .onUpdate((e) => {
-      scale.value = Math.max(0.6, Math.min(2.4, baseScale.value * e.scale));
+      const nextScale = clampMapScale(baseScale.value * e.scale);
+      scale.value = nextScale;
+      const nextTranslation = clampMapTranslation(tx.value, ty.value, width, height, nextScale);
+      tx.value = nextTranslation.x;
+      ty.value = nextTranslation.y;
     });
   const pan = Gesture.Pan()
     .minDistance(8)
-    .onChange((e) => { tx.value += e.changeX; ty.value += e.changeY; })
+    .onChange((e) => {
+      const nextTranslation = clampMapTranslation(
+        tx.value + e.changeX,
+        ty.value + e.changeY,
+        width,
+        height,
+        scale.value,
+      );
+      tx.value = nextTranslation.x;
+      ty.value = nextTranslation.y;
+    })
     .onEnd((e) => {
-      tx.value = withDecay({ velocity: e.velocityX, deceleration: 0.992, clamp: [-width, width] });
-      ty.value = withDecay({ velocity: e.velocityY, deceleration: 0.992, clamp: [-height, height] });
+      const limits = getMapPanLimits(width, height, scale.value);
+      tx.value = withDecay({
+        velocity: e.velocityX,
+        deceleration: 0.992,
+        clamp: [-limits.maxX, limits.maxX],
+      });
+      ty.value = withDecay({
+        velocity: e.velocityY,
+        deceleration: 0.992,
+        clamp: [-limits.maxY, limits.maxY],
+      });
     });
   const mapGesture = Gesture.Simultaneous(pinch, pan);
-  const mapStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: tx.value }, { translateY: ty.value }, { scale: scale.value }],
+  const translateStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: tx.value }, { translateY: ty.value }],
+  }));
+  const scaleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
   }));
 
   return (
     <View style={{ width, height, backgroundColor: color.bg.muted, borderRadius: 12, overflow: 'hidden' }}>
-      <View
-        pointerEvents="none"
-        style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', opacity: 0.7 }}
-      >
-        <TerritoryBg size={Math.max(width, height)} />
-      </View>
       <GestureDetector gesture={mapGesture}>
-       <Reanimated.View style={[{ width, height }, mapStyle]}>
-      <Svg width={width} height={height} viewBox={`0 0 ${vbW} ${vbH}`}>
-        <Defs>
-          {canAnimateCooldownPattern ? (
-            <AnimatedPattern
-              id="cooldown-stripes"
-              patternUnits="userSpaceOnUse"
-              width={STRIPE_W}
-              height={STRIPE_W}
-              animatedProps={stripeProps}
-            >
-              <Line
-                x1={0} y1={0} x2={0} y2={STRIPE_W}
-                stroke={tileTok.cooldownMask.color}
-                strokeWidth={2}
-                strokeOpacity={0.35}
-              />
-            </AnimatedPattern>
-          ) : (
-            <Pattern
-              id="cooldown-stripes"
-              patternUnits="userSpaceOnUse"
-              width={STRIPE_W}
-              height={STRIPE_W}
-              patternTransform="rotate(45)"
-            >
-              <Line
-                x1={0} y1={0} x2={0} y2={STRIPE_W}
-                stroke={tileTok.cooldownMask.color}
-                strokeWidth={2}
-                strokeOpacity={0.35}
-              />
-            </Pattern>
-          )}
-        </Defs>
-        {positioned.map(({ tile, p }) => {
-          const r = computeTileRender(tile, { myGroupId, now });
-          return (
-            <HexTile
-              key={tile.id}
-              tileId={tile.id}
-              cx={p.x + offsetX}
-              cy={p.y + offsetY}
-              render={r}
-              groupColor={r.ownerGroupId ? groupColorById[r.ownerGroupId] ?? null : null}
-              onPress={onTilePress}
-            />
-          );
-        })}
-        {ripples.map((rp) => (
-          <AnimatedCircle
-            key={rp.key}
-            cx={rp.cx}
-            cy={rp.cy}
-            r={rp.anim.interpolate({ inputRange: [0, 1], outputRange: [0, HEX_SIZE] })}
-            stroke="#FAF6EE"
-            strokeWidth={2}
-            fill="none"
-            strokeOpacity={rp.anim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] })}
-            pointerEvents="none"
-          />
-        ))}
-        {/* Refresh-wave glow: 3 stacked circles fake a soft blur — works on
-            Android where the SVG blur filter is unreliable. */}
-        {glows.map((g) =>
-          [
-            { r: HEX_SIZE * 0.7, o: 0.55 },
-            { r: HEX_SIZE * 0.9, o: 0.32 },
-            { r: HEX_SIZE * 1.1, o: 0.16 },
-          ].map((ring, i) => (
-            <AnimatedCircle
-              key={`${g.key}-${i}`}
-              cx={g.cx}
-              cy={g.cy}
-              r={ring.r}
-              fill={tileTok.refreshGlow.color}
-              fillOpacity={g.anim.interpolate({ inputRange: [0, 1], outputRange: [ring.o, 0] })}
+        <Reanimated.View style={[{ width, height }, translateStyle]}>
+          <Reanimated.View style={[{ width, height, position: 'relative' }, scaleStyle]}>
+            <View
               pointerEvents="none"
-            />
-          )),
-        )}
-      </Svg>
-       </Reanimated.View>
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: 0.7,
+                zIndex: 0,
+              }}
+            >
+              <TerritoryBg size={Math.max(width, height)} />
+            </View>
+            <Svg
+              width={width}
+              height={height}
+              viewBox={`0 0 ${vbW} ${vbH}`}
+              style={{ position: 'absolute', left: 0, top: 0, zIndex: 1 }}
+            >
+              <Defs>
+                {canAnimateCooldownPattern ? (
+                  <AnimatedPattern
+                    id="cooldown-stripes"
+                    patternUnits="userSpaceOnUse"
+                    width={STRIPE_W}
+                    height={STRIPE_W}
+                    animatedProps={stripeProps}
+                  >
+                    <Line
+                      x1={0} y1={0} x2={0} y2={STRIPE_W}
+                      stroke={tileTok.cooldownMask.color}
+                      strokeWidth={2}
+                      strokeOpacity={0.35}
+                    />
+                  </AnimatedPattern>
+                ) : (
+                  <Pattern
+                    id="cooldown-stripes"
+                    patternUnits="userSpaceOnUse"
+                    width={STRIPE_W}
+                    height={STRIPE_W}
+                    patternTransform="rotate(45)"
+                  >
+                    <Line
+                      x1={0} y1={0} x2={0} y2={STRIPE_W}
+                      stroke={tileTok.cooldownMask.color}
+                      strokeWidth={2}
+                      strokeOpacity={0.35}
+                    />
+                  </Pattern>
+                )}
+              </Defs>
+              {positioned.map(({ tile, p }) => {
+                const r = computeTileRender(tile, { myGroupId, now });
+                return (
+                  <HexTile
+                    key={tile.id}
+                    tileId={tile.id}
+                    cx={p.x + offsetX}
+                    cy={p.y + offsetY}
+                    render={r}
+                    groupColor={r.ownerGroupId ? groupColorById[r.ownerGroupId] ?? null : null}
+                    onPress={onTilePress}
+                  />
+                );
+              })}
+              {ripples.map((rp) => (
+                <AnimatedCircle
+                  key={rp.key}
+                  cx={rp.cx}
+                  cy={rp.cy}
+                  r={rp.anim.interpolate({ inputRange: [0, 1], outputRange: [0, HEX_SIZE] })}
+                  stroke="#FAF6EE"
+                  strokeWidth={2}
+                  fill="none"
+                  strokeOpacity={rp.anim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] })}
+                  pointerEvents="none"
+                />
+              ))}
+              {/* Refresh-wave glow: 3 stacked circles fake a soft blur — works on
+                  Android where the SVG blur filter is unreliable. */}
+              {glows.map((g) =>
+                [
+                  { r: HEX_SIZE * 0.7, o: 0.55 },
+                  { r: HEX_SIZE * 0.9, o: 0.32 },
+                  { r: HEX_SIZE * 1.1, o: 0.16 },
+                ].map((ring, i) => (
+                  <AnimatedCircle
+                    key={`${g.key}-${i}`}
+                    cx={g.cx}
+                    cy={g.cy}
+                    r={ring.r}
+                    fill={tileTok.refreshGlow.color}
+                    fillOpacity={g.anim.interpolate({ inputRange: [0, 1], outputRange: [ring.o, 0] })}
+                    pointerEvents="none"
+                  />
+                )),
+              )}
+            </Svg>
+          </Reanimated.View>
+        </Reanimated.View>
       </GestureDetector>
     </View>
   );
