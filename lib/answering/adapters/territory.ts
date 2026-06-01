@@ -17,5 +17,11 @@ export function makeTerritoryHostHooks(opts: {
       });
       opts.onResolved(allCorrect);
     },
+    onAbort: async () => {
+      await opts.resolveChallenge({
+        all_correct: false,
+      });
+      opts.onResolved(false);
+    },
   };
 }

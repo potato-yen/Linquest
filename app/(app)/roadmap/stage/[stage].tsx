@@ -79,7 +79,9 @@ export default function StageScreen() {
       },
     });
     engine.start({ questions: state.data.questions, ...hooks });
-    return () => engine.abort();
+    return () => {
+      void engine.abort();
+    };
   }, [state.status, userId, engine, stageNum, isPreviewing]);
 
   if (state.status === 'loading') return <ScreenScaffold><Skeleton height={400} /></ScreenScaffold>;

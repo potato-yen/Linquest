@@ -16,6 +16,8 @@ import { getSupabaseClient } from '../../../../lib/supabase';
 import { getActivityState } from '../../../../lib/territory/state';
 import { attemptCapture, resolveChallenge } from '../../../../lib/territory/arbitrator';
 import { computeTileRender } from '../../../../lib/territory-ui/tile-state';
+import { formatRemainingMs, getTileTiming } from '../../../../lib/territory-ui/tile-timing';
+import { getTileActionState } from '../../../../lib/territory-ui/tile-action';
 import { isAdjacent } from '../../../../lib/territory/coords';
 import { resolveChallengeSpec } from '../../../../lib/territory/challenge-spec';
 import { TERRITORY_DEFAULTS } from '../../../../lib/territory/types';
@@ -267,6 +269,21 @@ export default function MapScreen() {
     }
   }, [activeTile, resolvedGroupId]);
 
+  const activeTileTiming = useMemo(() => {
+    if (!activeTile) return null;
+    return getTileTiming(activeTile, now);
+  }, [activeTile, now]);
+
+  const activeTileStatusLabel = useMemo(() => {
+    if (!activeTileTiming?.status) return null;
+    return activeTileTiming.status === 'locked' ? '挑戰鎖定中' : '冷卻中';
+  }, [activeTileTiming]);
+
+  const activeTileStatusCountdown = useMemo(() => {
+    if (!activeTileTiming?.status) return null;
+    return formatRemainingMs(activeTileTiming.remainingMs);
+  }, [activeTileTiming]);
+
   const attackable = useMemo(() => {
     if (!tileSpec || !activeTile || !resolvedGroupId || state.status !== 'ready' || isEnded) return false;
     // Adjacency check: must own the tile itself (self-recapture) OR an adjacent tile
@@ -277,6 +294,39 @@ export default function MapScreen() {
     return isSelfOwned || hasAdjacentOwned;
   }, [tileSpec, activeTile, resolvedGroupId, state, isEnded]);
 
+  const tileRender = useMemo(() => {
+    if (!activeTile) return null;
+    return computeTileRender(activeTile, { myGroupId: resolvedGroupId, now });
+  }, [activeTile, resolvedGroupId, now]);
+
+  const myTreasury = state.status === 'ready'
+    ? state.data.groups.find((g) => g.id === resolvedGroupId)?.treasury
+    : undefined;
+
+  const tileActionState = useMemo(() => getTileActionState({
+    isEnded,
+    isCooldown: tileRender?.isCooldown ?? false,
+    hasActiveChallenge: tileRender?.hasActiveChallenge ?? false,
+    attackableByAdjacency: attackable,
+    treasury: myTreasury,
+    cost: tileSpec?.cost,
+  }), [attackable, isEnded, myTreasury, tileRender?.hasActiveChallenge, tileRender?.isCooldown, tileSpec?.cost]);
+
+  const tileWarningMessage = useMemo(() => {
+    if (tileActionState.disabledReason === 'insufficient_treasury') {
+      return '國庫財政點數不足';
+    }
+    return null;
+  }, [tileActionState.disabledReason]);
+
+  const handleTilePress = useCallback((tileId: string) => {
+    if (activeTileId === tileId) {
+      sheetRef.current?.open();
+      return;
+    }
+    setActiveTileId(tileId);
+  }, [activeTileId]);
+
   if (state.status === 'loading') return <ScreenScaffold><Skeleton height={400} /></ScreenScaffold>;
   if (state.status === 'error') return <ScreenScaffold><ErrorState error={state.error} onRetry={refresh} /></ScreenScaffold>;
   if (state.status === 'empty') return <ScreenScaffold><Text>找不到活動</Text></ScreenScaffold>;
@@ -285,7 +335,7 @@ export default function MapScreen() {
   const myGroup = data.groups.find((g) => g.id === resolvedGroupId);
 
   async function onAttack() {
-    if (!activeTile || isEnded) return;
+    if (!activeTile || isEnded || !tileActionState.canAttack) return;
     try {
       const { challenge_id, spec } = await attemptCapture(sb, {
         activity_id: activityId,
@@ -411,11 +461,10 @@ export default function MapScreen() {
         tiles={data.tiles}
         groups={data.groups}
         myGroupId={resolvedGroupId}
+        now={now}
         width={win.width - space[4] * 2}
         height={win.height * 0.6}
-        onTilePress={(tileId) => {
-          setActiveTileId(tileId);
-        }}
+        onTilePress={handleTilePress}
       />
 
       {/* Tile detail sheet */}
@@ -441,7 +490,7 @@ export default function MapScreen() {
             />
           ) : (
             <TileDetailSheet
-              render={computeTileRender(activeTile, { myGroupId: resolvedGroupId, now })}
+              render={tileRender ?? computeTileRender(activeTile, { myGroupId: resolvedGroupId, now })}
               ownerName={
                 activeTile.owner_group_id
                   ? data.groups.find((g) => g.id === activeTile.owner_group_id)?.name
@@ -454,7 +503,10 @@ export default function MapScreen() {
               }
               costLabel={tileSpec ? tileSpec.cost.toString() : '—'}
               rewardLabel={tileSpec ? tileSpec.success_reward.toString() : '—'}
-              attackable={attackable}
+              statusLabel={activeTileStatusLabel}
+              statusCountdown={activeTileStatusCountdown}
+              warningMessage={tileWarningMessage}
+              attackable={tileActionState.canAttack}
               onAttack={onAttack}
               specialDisabled={isEnded}
             />
@@ -493,7 +545,7 @@ export default function MapScreen() {
               ) : null}
             </>
           ) : null}
-          <Button title="放棄" variant="ghost" onPress={() => { engine.abort(); setAnswering(false); }} />
+          <Button title="放棄" variant="ghost" onPress={() => { void engine.abort(); setAnswering(false); }} />
         </View>
       ) : null}
     </ScreenScaffold>

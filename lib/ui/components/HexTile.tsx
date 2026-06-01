@@ -42,6 +42,17 @@ function HexTileImpl({ cx, cy, tileId, render: r, groupColor, onPress }: HexTile
 
   return (
     <G>
+      {onPress ? (
+        <Polygon
+          points={verts}
+          fill="#000"
+          fillOpacity={0.001}
+          stroke="#000"
+          strokeOpacity={0.001}
+          strokeWidth={6}
+          onPress={() => onPress(tileId)}
+        />
+      ) : null}
       <Polygon
         points={verts}
         fill={fill}
@@ -49,7 +60,7 @@ function HexTileImpl({ cx, cy, tileId, render: r, groupColor, onPress }: HexTile
         stroke={finalStroke}
         strokeWidth={finalStrokeW}
         strokeDasharray={strokeDash}
-        onPress={onPress ? () => onPress(tileId) : undefined}
+        pointerEvents="none"
       />
       {r.isCooldown ? (
         <G pointerEvents="none">

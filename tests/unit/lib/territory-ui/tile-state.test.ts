@@ -34,6 +34,12 @@ describe('computeTileRender', () => {
     expect(r.isCooldown).toBe(true);
   });
 
+  it('expired cooldown no longer renders as cooldown', () => {
+    const past = new Date(Date.now() - 60_000).toISOString();
+    const r = computeTileRender(baseTile({ protected_until: past, owner_group_id: 'g1' }), { myGroupId: 'g1', now: new Date() });
+    expect(r.isCooldown).toBe(false);
+  });
+
   it('capital flag passes through', () => {
     const r = computeTileRender(baseTile({ is_capital: true, owner_group_id: 'g1' }), { myGroupId: 'g1', now: new Date() });
     expect(r.isCapital).toBe(true);
@@ -48,5 +54,24 @@ describe('computeTileRender', () => {
   it('special kind sets isSpecial', () => {
     const r = computeTileRender(baseTile({ kind: 'special' }), { myGroupId: 'g1', now: new Date() });
     expect(r.isSpecial).toBe(true);
+  });
+
+  it('active challenge badge only shows while the lock is still live', () => {
+    const future = new Date(Date.now() + 60_000).toISOString();
+    const past = new Date(Date.now() - 60_000).toISOString();
+
+    expect(
+      computeTileRender(
+        baseTile({ active_challenge_id: 'c1', active_challenge_until: future }),
+        { myGroupId: 'g1', now: new Date() },
+      ).hasActiveChallenge,
+    ).toBe(true);
+
+    expect(
+      computeTileRender(
+        baseTile({ active_challenge_id: 'c1', active_challenge_until: past }),
+        { myGroupId: 'g1', now: new Date() },
+      ).hasActiveChallenge,
+    ).toBe(false);
   });
 });

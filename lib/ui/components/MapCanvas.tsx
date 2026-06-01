@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { View, Animated, Platform } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Reanimated, {
-  useSharedValue, useAnimatedStyle, useAnimatedProps, withDecay, withRepeat, withTiming, Easing,
+  useSharedValue, useAnimatedStyle, useAnimatedProps, withDecay, withRepeat, withTiming, Easing, runOnJS,
 } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Pattern, Line } from 'react-native-svg';
 import { HexTile } from './HexTile';
@@ -11,7 +11,7 @@ import { computeTileRender } from '../../territory-ui/tile-state';
 import { color, tile as tileTok } from '../tokens';
 import type { HexTile as HexTileRow } from '../../territory/types';
 import { TerritoryBg } from '../illustrations/scenes';
-import { supportsAnimatedCooldownPattern } from './map-canvas-support';
+import { shouldEnableMapPan, supportsAnimatedCooldownPattern } from './map-canvas-support';
 import {
   clampMapScale,
   clampMapTranslation,
@@ -26,6 +26,7 @@ export interface MapCanvasProps {
   tiles: HexTileRow[];
   groups: { id: string; color: string }[];
   myGroupId: string | null;
+  now: Date;
   width: number;
   height: number;
   onTilePress?: (tileId: string) => void;
@@ -45,10 +46,12 @@ interface Glow {
   anim: Animated.Value;
 }
 
-export function MapCanvas({ tiles, groups, myGroupId, width, height, onTilePress }: MapCanvasProps) {
+export function MapCanvas({ tiles, groups, myGroupId, now, width, height, onTilePress }: MapCanvasProps) {
+  const isWeb = Platform.OS === 'web';
   const groupColorById = useMemo(() => Object.fromEntries(groups.map((g) => [g.id, g.color])), [groups]);
-  const now = useMemo(() => new Date(), [tiles]);
   const canAnimateCooldownPattern = supportsAnimatedCooldownPattern(Platform.OS);
+  const panActivationDistance = isWeb ? 16 : 8;
+  const [panEnabled, setPanEnabled] = useState(() => shouldEnableMapPan(Platform.OS, 1));
 
   const positioned = useMemo(() => tiles.map((t) => ({ tile: t, p: axialToPixel(t.q, t.r) })), [tiles]);
   const minX = Math.min(...positioned.map((x) => x.p.x), 0);
@@ -139,12 +142,23 @@ export function MapCanvas({ tiles, groups, myGroupId, width, height, onTilePress
     .onUpdate((e) => {
       const nextScale = clampMapScale(baseScale.value * e.scale);
       scale.value = nextScale;
+      if (isWeb) {
+        runOnJS(setPanEnabled)(shouldEnableMapPan('web', nextScale));
+      }
       const nextTranslation = clampMapTranslation(tx.value, ty.value, width, height, nextScale);
       tx.value = nextTranslation.x;
       ty.value = nextTranslation.y;
+    })
+    .onEnd(() => {
+      if (isWeb) {
+        runOnJS(setPanEnabled)(shouldEnableMapPan('web', scale.value));
+      }
     });
   const pan = Gesture.Pan()
-    .minDistance(8)
+    .enabled(isWeb ? panEnabled : true)
+    .minDistance(panActivationDistance)
+    .activeOffsetX([-panActivationDistance, panActivationDistance])
+    .activeOffsetY([-panActivationDistance, panActivationDistance])
     .onChange((e) => {
       const nextTranslation = clampMapTranslation(
         tx.value + e.changeX,

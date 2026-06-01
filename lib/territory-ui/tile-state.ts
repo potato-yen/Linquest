@@ -17,6 +17,9 @@ export function computeTileRender(t: HexTile, ctx: { myGroupId: string | null; n
   const ownership: Ownership = !t.owner_group_id ? 'neutral'
     : t.owner_group_id === ctx.myGroupId ? 'self' : 'other';
   const isCooldown = !!t.protected_until && new Date(t.protected_until) > ctx.now;
+  const hasActiveChallenge = !!t.active_challenge_id
+    && !!t.active_challenge_until
+    && new Date(t.active_challenge_until) > ctx.now;
   return {
     ownership,
     isCapital: t.is_capital,
@@ -24,7 +27,7 @@ export function computeTileRender(t: HexTile, ctx: { myGroupId: string | null; n
     multiplier: t.multiplier,
     isSpecial: t.kind === 'special',
     isCooldown,
-    hasActiveChallenge: !!t.active_challenge_id,
+    hasActiveChallenge,
     ownerGroupId: t.owner_group_id,
   };
 }

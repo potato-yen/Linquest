@@ -73,7 +73,21 @@ describe('AnsweringEngine', () => {
   it('abort() clears state to idle', async () => {
     const e = new AnsweringEngine(fixedNow());
     e.start({ questions: [Q('1', 'a')], enableRetry: false, onAttempt: jest.fn(), onFinish: jest.fn() });
-    e.abort();
+    await e.abort();
     expect(e.state.phase).toBe('idle');
+  });
+
+  it('abort() invokes host onAbort hook when provided', async () => {
+    const onAbort = jest.fn();
+    const e = new AnsweringEngine(fixedNow());
+    e.start({
+      questions: [Q('1', 'a')],
+      enableRetry: false,
+      onAttempt: jest.fn(),
+      onFinish: jest.fn(),
+      onAbort,
+    });
+    await e.abort();
+    expect(onAbort).toHaveBeenCalledTimes(1);
   });
 });

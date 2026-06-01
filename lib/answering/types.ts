@@ -36,4 +36,5 @@ export interface EngineHostHooks {
   enableRetry: boolean;            // roadmap=true; territory/battle=false
   onAttempt: (a: Attempt) => Promise<void> | void;
   onFinish: (summary: { firstRoundResults: Attempt[]; totalAttempts: Attempt[] }) => void;
+  onAbort?: () => Promise<void> | void;
 }

@@ -32,7 +32,12 @@ export class AnsweringEngine {
   }
 
   start(opts: { questions: Question[] } & EngineHostHooks): void {
-    this.hooks = { enableRetry: opts.enableRetry, onAttempt: opts.onAttempt, onFinish: opts.onFinish };
+    this.hooks = {
+      enableRetry: opts.enableRetry,
+      onAttempt: opts.onAttempt,
+      onFinish: opts.onFinish,
+      onAbort: opts.onAbort,
+    };
     this.firstRoundQueue = [...opts.questions];
     this.retryQueue = [];
     this.state = {
@@ -92,12 +97,18 @@ export class AnsweringEngine {
     this.notify();
   }
 
-  abort(): void {
+  async abort(): Promise<void> {
+    const onAbort = this.hooks?.onAbort;
     this.state = initialState();
     this.firstRoundQueue = [];
     this.retryQueue = [];
     this.hooks = null;
     this.notify();
+    try {
+      await onAbort?.();
+    } catch {
+      // Swallow abort cleanup errors; the UI should still close immediately.
+    }
   }
 
   subscribe(l: Listener): () => void { this.listeners.add(l); return () => this.listeners.delete(l); }

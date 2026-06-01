@@ -9,6 +9,8 @@ import type { TileRender } from '../../territory-ui/tile-state';
 
 export function TileDetailSheet({
   render: r, ownerName, ownerColor, costLabel, rewardLabel, attackable, onAttack, specialDisabled,
+  statusLabel, statusCountdown,
+  warningMessage,
 }: {
   render: TileRender;
   ownerName?: string;
@@ -18,6 +20,9 @@ export function TileDetailSheet({
   attackable: boolean;
   onAttack: () => void;
   specialDisabled?: boolean;
+  statusLabel?: string | null;
+  statusCountdown?: string | null;
+  warningMessage?: string | null;
 }) {
   const kindLabel = r.isSpecial ? '特殊格' : r.isMultiplier ? `倍率格 ×${r.multiplier ?? '?'}` : r.isCapital ? '首都' : '一般格';
   return (
@@ -32,15 +37,26 @@ export function TileDetailSheet({
         <Text color="muted">{ownerName ?? '中立未開拓'}</Text>
       </View>
 
+      {warningMessage ? (
+        <Text color="warm">{warningMessage}</Text>
+      ) : null}
+
       <View style={{ flexDirection: 'row', gap: space[5], marginTop: space[3] }}>
         <View><Text variant="caption" color="muted">cost</Text><Text variant="num">{costLabel}</Text></View>
         <View><Text variant="caption" color="muted">reward</Text><Text variant="num">{rewardLabel}</Text></View>
       </View>
 
+      {statusLabel ? (
+        <View style={{ gap: space[1] }}>
+          <Text variant="caption" color="muted">status</Text>
+          <Text>{statusLabel}{statusCountdown ? ` · ${statusCountdown}` : ''}</Text>
+        </View>
+      ) : null}
+
       {specialDisabled ? (
         <Text color="muted" style={{ marginTop: space[3] }}>特殊格 1v1 對戰將在 Phase 3 開放。</Text>
       ) : (
-        <Button title="攻擊" onPress={onAttack} disabled={!attackable || r.isCooldown} />
+        <Button title="攻擊" onPress={onAttack} disabled={!attackable || r.isCooldown || r.hasActiveChallenge} />
       )}
     </View>
   );

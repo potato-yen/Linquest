@@ -37,4 +37,12 @@ describe('HexTile', () => {
     fireEvent(polygons[0], 'press');
     expect(fn).toHaveBeenCalledWith('t1');
   });
+
+  it('renders a dedicated invisible hit area for interactive tiles', () => {
+    const { UNSAFE_getAllByType } = render(<Svg><HexTile {...props} onPress={() => {}} /></Svg>);
+    const polygons = UNSAFE_getAllByType(require('react-native-svg').Polygon);
+    expect(polygons.length).toBeGreaterThanOrEqual(2);
+    expect(polygons[0].props.fillOpacity).toBe(0.001);
+    expect(polygons[0].props.strokeWidth).toBeGreaterThan(polygons[1].props.strokeWidth);
+  });
 });
