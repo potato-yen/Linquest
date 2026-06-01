@@ -152,6 +152,25 @@ export default function MapScreen() {
         },
       );
 
+    // Real-time map updates: refresh full state when any tile in the map changes
+    const mapId = state.status === 'ready' ? state.data.map_id : null;
+    const tileChannel = mapId
+      ? sb
+          .channel(`map-sync:${mapId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'hex_tiles',
+              filter: `map_id=eq.${mapId}`,
+            },
+            () => {
+              refresh();
+            },
+          )
+      : null;
+
     // Subscribe to both after setting up listeners
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
@@ -159,12 +178,14 @@ export default function MapScreen() {
       }
     });
     battleChannel.subscribe();
+    if (tileChannel) tileChannel.subscribe();
 
     return () => {
       leaveActivityPresence(channel);
       sb.removeChannel(battleChannel);
+      if (tileChannel) sb.removeChannel(tileChannel);
     };
-  }, [resolvedGroupId, s.status, activityId, sb]);
+  }, [resolvedGroupId, s.status, activityId, sb, state.status, refresh]);
 
   const engine = useMemo(() => new AnsweringEngine(), []);
   const [answering, setAnswering] = useState<boolean>(false);

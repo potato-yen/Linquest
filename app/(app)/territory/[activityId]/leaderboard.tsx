@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { ScreenScaffold, Text, Skeleton, ErrorState, Button } from '../../../../lib/ui/components';
 import { SettlementBoard } from '../../../../lib/ui/components/SettlementBoard';
@@ -15,20 +15,53 @@ export default function Leaderboard() {
     { pollMs: 5000 },
   );
 
+  useEffect(() => {
+    if (state.status !== 'ready') return;
+    const mapId = state.data.map_id;
+    const tileChannel = sb
+      .channel(`leaderboard-sync:${mapId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'hex_tiles',
+          filter: `map_id=eq.${mapId}`,
+        },
+        () => {
+          refresh();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      sb.removeChannel(tileChannel);
+    };
+  }, [state.status, refresh, sb]);
+
   if (state.status === 'loading') return <ScreenScaffold><Skeleton height={400} /></ScreenScaffold>;
   if (state.status === 'error') return <ScreenScaffold><ErrorState error={state.error} onRetry={refresh} /></ScreenScaffold>;
   if (state.status === 'empty') return null;
 
   const data = state.data;
-  const groupOwned = (gid: string) => data.tiles.filter((t) => t.owner_group_id === gid).length;
+  const groupOwnedWeighted = (gid: string) =>
+    data.tiles
+      .filter((t) => t.owner_group_id === gid)
+      .reduce((sum, t) => sum + (t.multiplier ?? 1), 0);
 
   const treasuryRanked = [...data.groups]
     .sort((a, b) => b.treasury - a.treasury)
     .map((g, i) => ({ group_id: g.id, name: g.name, color: g.color, rank: i + 1, value: g.treasury }));
 
   const territoryRanked = [...data.groups]
-    .sort((a, b) => groupOwned(b.id) - groupOwned(a.id))
-    .map((g, i) => ({ group_id: g.id, name: g.name, color: g.color, rank: i + 1, value: groupOwned(g.id) }));
+    .sort((a, b) => groupOwnedWeighted(b.id) - groupOwnedWeighted(a.id))
+    .map((g, i) => ({
+      group_id: g.id,
+      name: g.name,
+      color: g.color,
+      rank: i + 1,
+      value: groupOwnedWeighted(g.id),
+    }));
 
   return (
     <ScreenScaffold scroll>

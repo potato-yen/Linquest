@@ -3,6 +3,7 @@ import { HexTile } from './types';
 
 export interface ActivityState {
   activity_id: string;
+  map_id: string;
   status: string;
   ends_at: string;
   sudden_death_started_at: string | null;
@@ -46,6 +47,7 @@ export async function getActivityState(
 
   return {
     activity_id,
+    map_id: activity.map_id,
     status: activity.status,
     ends_at: activity.ends_at,
     sudden_death_started_at: activity.sudden_death_started_at,
