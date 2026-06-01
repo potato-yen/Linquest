@@ -177,6 +177,24 @@ export default function MapScreen() {
     return buildChoiceOrder(answeringState.current);
   }, [answeringState.current?.id]);
 
+  const effectiveEndAt = useMemo(() => {
+    if (state.status !== 'ready') return null;
+    const endsAt = new Date(state.data.ends_at);
+    if (!state.data.sudden_death_started_at) return endsAt;
+    const sdEnd = new Date(new Date(state.data.sudden_death_started_at).getTime() + 12 * 3600000);
+    return endsAt < sdEnd ? endsAt : sdEnd;
+  }, [state]);
+
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const isEnded = state.status === 'ready' && (
+    state.data.status === 'ended' || (effectiveEndAt ? now >= effectiveEndAt : false)
+  );
+
   const activeTile = useMemo(() => {
     if (state.status !== 'ready') return null;
     return activeTileId ? state.data.tiles.find((t) => t.id === activeTileId) ?? null : null;
@@ -192,14 +210,14 @@ export default function MapScreen() {
   }, [activeTile, resolvedGroupId]);
 
   const attackable = useMemo(() => {
-    if (!tileSpec || !activeTile || !resolvedGroupId || state.status !== 'ready') return false;
+    if (!tileSpec || !activeTile || !resolvedGroupId || state.status !== 'ready' || isEnded) return false;
     // Adjacency check: must own the tile itself (self-recapture) OR an adjacent tile
     const isSelfOwned = activeTile.owner_group_id === resolvedGroupId;
     const hasAdjacentOwned = state.data.tiles.some(
       (t) => t.owner_group_id === resolvedGroupId && isAdjacent(t, activeTile)
     );
     return isSelfOwned || hasAdjacentOwned;
-  }, [tileSpec, activeTile, resolvedGroupId, state]);
+  }, [tileSpec, activeTile, resolvedGroupId, state, isEnded]);
 
   if (state.status === 'loading') return <ScreenScaffold><Skeleton height={400} /></ScreenScaffold>;
   if (state.status === 'error') return <ScreenScaffold><ErrorState error={state.error} onRetry={refresh} /></ScreenScaffold>;
@@ -209,7 +227,7 @@ export default function MapScreen() {
   const myGroup = data.groups.find((g) => g.id === resolvedGroupId);
 
   async function onAttack() {
-    if (!activeTile) return;
+    if (!activeTile || isEnded) return;
     try {
       const { challenge_id, spec } = await attemptCapture(sb, {
         activity_id: activityId,
@@ -306,8 +324,10 @@ export default function MapScreen() {
         <ScoreCard label="國庫" value={myGroup?.treasury ?? 0} />
         <ScoreCard label="領地" value={myTileCount} />
         <View style={{ alignItems: 'center', gap: 2 }}>
-          <Text variant="caption" color="muted">倒數</Text>
-          <Countdown deadline={data.next_refresh_at} />
+          <Text variant="caption" color={isEnded ? color.brand.error : 'muted'}>
+            {isEnded ? '活動已結束' : '剩餘時間'}
+          </Text>
+          <Countdown deadline={effectiveEndAt} />
         </View>
         <Button title="榜" variant="ghost" onPress={() => router.push(`/(app)/territory/${activityId}/leaderboard` as any)} />
       </View>
@@ -332,6 +352,7 @@ export default function MapScreen() {
             <PresenceList
               entries={presenceList}
               onChallenge={async (defenderId) => {
+                if (isEnded) return;
                 try {
                   const battleId = await sendBattleInvite(sb, {
                     activity_id: activityId,
@@ -347,7 +368,7 @@ export default function MapScreen() {
             />
           ) : (
             <TileDetailSheet
-              render={computeTileRender(activeTile, { myGroupId: resolvedGroupId, now: new Date() })}
+              render={computeTileRender(activeTile, { myGroupId: resolvedGroupId, now })}
               ownerName={
                 activeTile.owner_group_id
                   ? data.groups.find((g) => g.id === activeTile.owner_group_id)?.name
@@ -362,7 +383,7 @@ export default function MapScreen() {
               rewardLabel={tileSpec ? tileSpec.success_reward.toString() : '—'}
               attackable={attackable}
               onAttack={onAttack}
-              specialDisabled={false}
+              specialDisabled={isEnded}
             />
           )
         ) : null}

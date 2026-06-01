@@ -4,6 +4,8 @@ import { HexTile } from './types';
 export interface ActivityState {
   activity_id: string;
   status: string;
+  ends_at: string;
+  sudden_death_started_at: string | null;
   next_refresh_at: string | null;
   next_tax_at: string | null;
   groups: Array<{
@@ -21,7 +23,7 @@ export async function getActivityState(
 ): Promise<ActivityState> {
   const { data: activity, error: activityError } = await sb
     .from('activities')
-    .select('id, status, map_id, next_refresh_at, next_tax_at')
+    .select('id, status, map_id, ends_at, sudden_death_started_at, next_refresh_at, next_tax_at')
     .eq('id', activity_id)
     .single();
 
@@ -45,6 +47,8 @@ export async function getActivityState(
   return {
     activity_id,
     status: activity.status,
+    ends_at: activity.ends_at,
+    sudden_death_started_at: activity.sudden_death_started_at,
     next_refresh_at: activity.next_refresh_at,
     next_tax_at: activity.next_tax_at,
     groups: (groups ?? []) as ActivityState['groups'],
