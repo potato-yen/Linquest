@@ -4,40 +4,42 @@ import { ScreenScaffold, Text, Skeleton, ErrorState, Button } from '../../../../
 import { SettlementBoard } from '../../../../lib/ui/components/SettlementBoard';
 import { useScreenData } from '../../../../lib/ui/hooks/useScreenData';
 import { getSupabaseClient } from '../../../../lib/supabase';
+import { subscribeManagedRealtimeChannel } from '../../../../lib/supabase-realtime';
 import { getActivityState } from '../../../../lib/territory/state';
 
 export default function Leaderboard() {
   const { activityId } = useLocalSearchParams<{ activityId: string }>();
-  const sb = getSupabaseClient();
+  const sb = React.useRef(getSupabaseClient()).current;
   const { state, refresh } = useScreenData(
     (_signal) => getActivityState(sb, activityId),
     [activityId],
     { pollMs: 5000 },
   );
+  const mapId = state.status === 'ready' ? state.data.map_id : null;
 
   useEffect(() => {
-    if (state.status !== 'ready') return;
-    const mapId = state.data.map_id;
-    const tileChannel = sb
-      .channel(`leaderboard-sync:${mapId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'hex_tiles',
-          filter: `map_id=eq.${mapId}`,
-        },
-        () => {
-          refresh();
-        },
-      )
-      .subscribe();
+    if (!mapId) return;
 
-    return () => {
-      sb.removeChannel(tileChannel);
-    };
-  }, [state.status, refresh, sb]);
+    return subscribeManagedRealtimeChannel(sb, {
+      topic: `leaderboard-sync:${mapId}`,
+      setup: (channel) =>
+        channel.on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'hex_tiles',
+            filter: `map_id=eq.${mapId}`,
+          },
+          () => {
+            refresh();
+          },
+        ),
+      onError: (error) => {
+        console.warn('[territory] leaderboard sync setup failed', error);
+      },
+    });
+  }, [mapId, refresh, sb]);
 
   if (state.status === 'loading') return <ScreenScaffold><Skeleton height={400} /></ScreenScaffold>;
   if (state.status === 'error') return <ScreenScaffold><ErrorState error={state.error} onRetry={refresh} /></ScreenScaffold>;

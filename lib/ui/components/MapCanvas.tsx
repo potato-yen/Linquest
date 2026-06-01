@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
-import { View, Animated } from 'react-native';
+import { View, Animated, Platform } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Reanimated, {
   useSharedValue, useAnimatedStyle, useAnimatedProps, withDecay, withRepeat, withTiming, Easing,
@@ -11,6 +11,7 @@ import { computeTileRender } from '../../territory-ui/tile-state';
 import { color, tile as tileTok } from '../tokens';
 import type { HexTile as HexTileRow } from '../../territory/types';
 import { TerritoryBg } from '../illustrations/scenes';
+import { supportsAnimatedCooldownPattern } from './map-canvas-support';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedPattern = Reanimated.createAnimatedComponent(Pattern);
@@ -42,6 +43,7 @@ interface Glow {
 export function MapCanvas({ tiles, groups, myGroupId, width, height, onTilePress }: MapCanvasProps) {
   const groupColorById = useMemo(() => Object.fromEntries(groups.map((g) => [g.id, g.color])), [groups]);
   const now = useMemo(() => new Date(), [tiles]);
+  const canAnimateCooldownPattern = supportsAnimatedCooldownPattern(Platform.OS);
 
   const positioned = useMemo(() => tiles.map((t) => ({ tile: t, p: axialToPixel(t.q, t.r) })), [tiles]);
   const minX = Math.min(...positioned.map((x) => x.p.x), 0);
@@ -109,12 +111,13 @@ export function MapCanvas({ tiles, groups, myGroupId, width, height, onTilePress
   // hex.cooldownStripe). All cooldown hexes reference the same <Pattern>.
   const stripeShift = useSharedValue(0);
   useEffect(() => {
+    if (!canAnimateCooldownPattern) return;
     stripeShift.value = withRepeat(
       withTiming(STRIPE_W, { duration: 8000, easing: Easing.linear }),
       -1,
       false,
     );
-  }, [stripeShift]);
+  }, [canAnimateCooldownPattern, stripeShift]);
   const stripeProps = useAnimatedProps(() => ({
     patternTransform: `rotate(45) translate(${stripeShift.value} 0)`,
   }));
@@ -155,20 +158,37 @@ export function MapCanvas({ tiles, groups, myGroupId, width, height, onTilePress
        <Reanimated.View style={[{ width, height }, mapStyle]}>
       <Svg width={width} height={height} viewBox={`0 0 ${vbW} ${vbH}`}>
         <Defs>
-          <AnimatedPattern
-            id="cooldown-stripes"
-            patternUnits="userSpaceOnUse"
-            width={STRIPE_W}
-            height={STRIPE_W}
-            animatedProps={stripeProps}
-          >
-            <Line
-              x1={0} y1={0} x2={0} y2={STRIPE_W}
-              stroke={tileTok.cooldownMask.color}
-              strokeWidth={2}
-              strokeOpacity={0.35}
-            />
-          </AnimatedPattern>
+          {canAnimateCooldownPattern ? (
+            <AnimatedPattern
+              id="cooldown-stripes"
+              patternUnits="userSpaceOnUse"
+              width={STRIPE_W}
+              height={STRIPE_W}
+              animatedProps={stripeProps}
+            >
+              <Line
+                x1={0} y1={0} x2={0} y2={STRIPE_W}
+                stroke={tileTok.cooldownMask.color}
+                strokeWidth={2}
+                strokeOpacity={0.35}
+              />
+            </AnimatedPattern>
+          ) : (
+            <Pattern
+              id="cooldown-stripes"
+              patternUnits="userSpaceOnUse"
+              width={STRIPE_W}
+              height={STRIPE_W}
+              patternTransform="rotate(45)"
+            >
+              <Line
+                x1={0} y1={0} x2={0} y2={STRIPE_W}
+                stroke={tileTok.cooldownMask.color}
+                strokeWidth={2}
+                strokeOpacity={0.35}
+              />
+            </Pattern>
+          )}
         </Defs>
         {positioned.map(({ tile, p }) => {
           const r = computeTileRender(tile, { myGroupId, now });

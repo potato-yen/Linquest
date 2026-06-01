@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import {
   ScreenScaffold, Text, Skeleton, ErrorState, ScoreCard, ChoiceCard, QuestionCard, Button,
   Sheet, Countdown,
@@ -18,13 +19,14 @@ import { computeTileRender } from '../../../../lib/territory-ui/tile-state';
 import { isAdjacent } from '../../../../lib/territory/coords';
 import { resolveChallengeSpec } from '../../../../lib/territory/challenge-spec';
 import { TERRITORY_DEFAULTS } from '../../../../lib/territory/types';
-import { joinActivityPresence, leaveActivityPresence, listOnlineOpponents } from '../../../../lib/realtime-battle/presence';
+import { leaveActivityPresence, listOnlineOpponents } from '../../../../lib/realtime-battle/presence';
 import { sendBattleInvite } from '../../../../lib/realtime-battle/service';
 import { buildChoiceOrder } from '../../../../lib/answering/choices';
 import { AnsweringEngine } from '../../../../lib/answering/engine';
 import type { Question } from '../../../../lib/answering/types';
 import { makeTerritoryHostHooks } from '../../../../lib/answering/adapters/territory';
 import { needsSampledDistractors, sampleDistractors } from '../../../../lib/answering/sample-distractors';
+import { subscribeManagedRealtimeChannel } from '../../../../lib/supabase-realtime';
 import { space, color } from '../../../../lib/ui/tokens';
 
 const POLL_MAP_MS = 10_000;
@@ -41,10 +43,11 @@ function shuffle<T>(arr: T[]): T[] {
 export default function MapScreen() {
   const { activityId } = useLocalSearchParams<{ activityId: string }>();
   const s = useSession();
-  const sb = getSupabaseClient();
+  const sb = useRef(getSupabaseClient()).current;
   const win = useWindowDimensions();
 
   const sheetRef = useRef<SheetHandle>(null);
+  const authUserId = s.status === 'auth' ? s.user.id : null;
 
   const { state, refresh } = useScreenData(
     async (_signal: AbortSignal) => getActivityState(sb, activityId),
@@ -71,6 +74,7 @@ export default function MapScreen() {
   // Presence state for special tiles
   const [presenceList, setPresenceList] = useState<PresenceListEntry[]>([]);
   const membersMap = useRef<Map<string, { display_name: string; group_color: string }>>(new Map());
+  const mapId = state.status === 'ready' ? state.data.map_id : null;
 
   // Fetch all members once when activity + group are known
   useEffect(() => {
@@ -91,12 +95,9 @@ export default function MapScreen() {
     })();
   }, [state.status, activityId, resolvedGroupId, sb]);
 
-  // Presence channel — open while map is mounted and group is resolved
-  useEffect(() => {
-    if (!resolvedGroupId || s.status !== 'auth') return;
-    const entry = { user_id: s.user.id, group_id: resolvedGroupId, in_battle: false };
-    const channel = joinActivityPresence(activityId, entry, sb);
-    const syncPresence = async () => {
+  const syncPresence = useCallback(async (channel: RealtimeChannel) => {
+    if (!resolvedGroupId || s.status !== 'auth' || !authUserId) return;
+    try {
       const { data: battles } = await sb
         .from('battles')
         .select('challenger_user_id, defender_user_id')
@@ -104,12 +105,12 @@ export default function MapScreen() {
         .in('status', ['pending_invite', 'in_progress']);
 
       const amIBusy = (battles ?? []).some(
-        (b: any) => b.challenger_user_id === s.user.id || b.defender_user_id === s.user.id,
+        (b: any) => b.challenger_user_id === authUserId || b.defender_user_id === authUserId,
       );
 
       // Update our own presence state if it changed
       void channel.track({
-        user_id: s.user.id,
+        user_id: authUserId,
         group_id: resolvedGroupId,
         in_battle: amIBusy,
         last_active_at: new Date().toISOString(),
@@ -130,62 +131,92 @@ export default function MapScreen() {
         in_battle: op.in_battle,
       }));
       setPresenceList(enriched);
-    };
+    } catch (error) {
+      console.warn('[territory] failed to sync presence', error);
+    }
+  }, [activityId, resolvedGroupId, s.status, sb, authUserId]);
 
-    channel.on('presence', { event: 'sync' }, () => {
-      void syncPresence();
-    });
+  // Presence channel — open while map is mounted and group is resolved
+  useEffect(() => {
+    if (!resolvedGroupId || s.status !== 'auth' || !authUserId) return;
 
-    // Reactive battle-busy filtering: refresh list when any battle in this activity changes
-    const battleChannel = sb
-      .channel(`battles-sync:${activityId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'battles',
-          filter: `activity_id=eq.${activityId}`,
+    return subscribeManagedRealtimeChannel(sb, {
+      topic: `activity:${activityId}:presence`,
+      options: {
+        config: {
+          presence: {
+            key: authUserId,
+          },
         },
-        () => {
-          void syncPresence();
-        },
-      );
-
-    // Real-time map updates: refresh full state when any tile in the map changes
-    const mapId = state.status === 'ready' ? state.data.map_id : null;
-    const tileChannel = mapId
-      ? sb
-          .channel(`map-sync:${mapId}`)
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'hex_tiles',
-              filter: `map_id=eq.${mapId}`,
-            },
-            () => {
-              refresh();
-            },
-          )
-      : null;
-
-    // Subscribe to both after setting up listeners
-    channel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        void syncPresence();
-      }
+      },
+      setup: (channel) =>
+        channel.on('presence', { event: 'sync' }, () => {
+          void syncPresence(channel as RealtimeChannel);
+        }),
+      subscribe: (channel) => {
+        channel.subscribe((status: string) => {
+          if (status === 'SUBSCRIBED') {
+            void syncPresence(channel as RealtimeChannel);
+          }
+        });
+      },
+      cleanup: async (channel, client) => {
+        await leaveActivityPresence(channel as RealtimeChannel);
+        await client.removeChannel(channel as RealtimeChannel);
+      },
+      onError: (error) => {
+        console.warn('[territory] presence channel setup failed', error);
+      },
     });
-    battleChannel.subscribe();
-    if (tileChannel) tileChannel.subscribe();
+  }, [activityId, resolvedGroupId, s.status, sb, syncPresence, authUserId]);
 
-    return () => {
-      leaveActivityPresence(channel);
-      sb.removeChannel(battleChannel);
-      if (tileChannel) sb.removeChannel(tileChannel);
-    };
-  }, [resolvedGroupId, s.status, activityId, sb, state.status, refresh]);
+  useEffect(() => {
+    if (!resolvedGroupId || s.status !== 'auth') return;
+
+    return subscribeManagedRealtimeChannel(sb, {
+      topic: `battles-sync:${activityId}`,
+      setup: (channel) =>
+        channel.on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'battles',
+            filter: `activity_id=eq.${activityId}`,
+          },
+          () => {
+            void syncPresence(channel as RealtimeChannel);
+          },
+        ),
+      onError: (error) => {
+        console.warn('[territory] battle sync setup failed', error);
+      },
+    });
+  }, [activityId, resolvedGroupId, s.status, sb, syncPresence]);
+
+  useEffect(() => {
+    if (!mapId) return;
+
+    return subscribeManagedRealtimeChannel(sb, {
+      topic: `map-sync:${mapId}`,
+      setup: (channel) =>
+        channel.on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'hex_tiles',
+            filter: `map_id=eq.${mapId}`,
+          },
+          () => {
+            refresh();
+          },
+        ),
+      onError: (error) => {
+        console.warn('[territory] map sync setup failed', error);
+      },
+    });
+  }, [mapId, refresh, sb]);
 
   const engine = useMemo(() => new AnsweringEngine(), []);
   const [answering, setAnswering] = useState<boolean>(false);
@@ -220,6 +251,12 @@ export default function MapScreen() {
     if (state.status !== 'ready') return null;
     return activeTileId ? state.data.tiles.find((t) => t.id === activeTileId) ?? null : null;
   }, [activeTileId, state]);
+
+  useEffect(() => {
+    if (activeTileId) {
+      sheetRef.current?.open();
+    }
+  }, [activeTileId]);
 
   const tileSpec = useMemo(() => {
     if (!activeTile || !resolvedGroupId || activeTile.kind === 'special') return null;
@@ -361,10 +398,10 @@ export default function MapScreen() {
         <ScoreCard label="國庫" value={myGroup?.treasury ?? 0} />
         <ScoreCard label="領地" value={myTileCount} />
         <View style={{ alignItems: 'center', gap: 2 }}>
-          <Text variant="caption" color={isEnded ? color.brand.error : 'muted'}>
+          <Text variant="caption" color={isEnded ? 'warm' : 'muted'}>
             {isEnded ? '活動已結束' : '剩餘時間'}
           </Text>
-          <Countdown deadline={effectiveEndAt} />
+          <Countdown deadline={effectiveEndAt?.toISOString() ?? null} />
         </View>
         <Button title="排行榜" variant="ghost" onPress={() => router.push(`/(app)/territory/${activityId}/leaderboard` as any)} />
       </View>
@@ -378,14 +415,13 @@ export default function MapScreen() {
         height={win.height * 0.6}
         onTilePress={(tileId) => {
           setActiveTileId(tileId);
-          sheetRef.current?.open();
         }}
       />
 
       {/* Tile detail sheet */}
-      <Sheet ref={sheetRef} onClose={() => setActiveTileId(null)} snapPoints={['40%']}>
-        {activeTile ? (
-          activeTile.kind === 'special' ? (
+      {activeTile ? (
+        <Sheet ref={sheetRef} onClose={() => setActiveTileId(null)} snapPoints={['40%']}>
+          {activeTile.kind === 'special' ? (
             <PresenceList
               entries={presenceList}
               onChallenge={async (defenderId) => {
@@ -422,9 +458,9 @@ export default function MapScreen() {
               onAttack={onAttack}
               specialDisabled={isEnded}
             />
-          )
-        ) : null}
-      </Sheet>
+          )}
+        </Sheet>
+      ) : null}
 
       {/* Answering overlay */}
       {answering ? (
