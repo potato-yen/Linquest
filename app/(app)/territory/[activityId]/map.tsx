@@ -329,7 +329,7 @@ export default function MapScreen() {
           </Text>
           <Countdown deadline={effectiveEndAt} />
         </View>
-        <Button title="榜" variant="ghost" onPress={() => router.push(`/(app)/territory/${activityId}/leaderboard` as any)} />
+        <Button title="排行榜" variant="ghost" onPress={() => router.push(`/(app)/territory/${activityId}/leaderboard` as any)} />
       </View>
 
       {/* Map */}
