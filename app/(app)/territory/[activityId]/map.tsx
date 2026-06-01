@@ -294,6 +294,22 @@ export default function MapScreen() {
       setAnswering(true);
 
       const hooks = makeTerritoryHostHooks({
+        onAttempt: (a) => {
+          if (!resolvedGroupId || s.status !== 'auth') return;
+          sb.from('attempts')
+            .insert({
+              user_id: s.user.id,
+              activity_id: activityId,
+              question_id: a.question_id,
+              tile_id: activeTile.id,
+              context: 'territory',
+              is_correct: a.is_correct,
+              response_ms: a.response_ms,
+            })
+            .then(({ error }) => {
+              if (error) console.warn('[territory] failed to record attempt', error);
+            });
+        },
         resolveChallenge: ({ all_correct }) =>
           resolveChallenge(sb, {
             activity_id: activityId,

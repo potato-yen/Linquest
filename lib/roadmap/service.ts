@@ -131,14 +131,14 @@ export async function submitRoadmapAttempt(
     .from('attempts')
     .insert({
       user_id: input.userId,
-      question_id: null, // Roadmap uses stable string IDs in roadmap_mastery, not UUIDs in public.questions
+      question_id: null,
+      stable_question_id: input.questionId,
       activity_id: null,
       context: 'roadmap',
       tile_id: null,
       battle_id: null,
       is_correct: input.isCorrect,
       response_ms: input.responseMs,
-      payload: { stable_question_id: input.questionId }
     });
 
   if (attemptErr) throw attemptErr;

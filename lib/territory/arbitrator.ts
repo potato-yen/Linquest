@@ -51,6 +51,8 @@ export async function resolveChallenge(
   input: ResolveChallengeInput,
 ): Promise<void> {
   await requireUserId(sb);
+
+  // Resolve the challenge outcome (ownership, rewards)
   const { error } = await sb.rpc('resolve_challenge', {
     p_activity_id: input.activity_id,
     p_tile_id: input.tile_id,
