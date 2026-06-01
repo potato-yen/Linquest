@@ -357,7 +357,7 @@ export default function MapScreen() {
     <ScreenScaffold>
       {/* Header row */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: space[3] }}>
-        <Button title="←" variant="ghost" onPress={() => router.back()} />
+        <Button title="←" variant="ghost" onPress={() => router.replace('/(app)/territory' as any)} />
         <ScoreCard label="國庫" value={myGroup?.treasury ?? 0} />
         <ScoreCard label="領地" value={myTileCount} />
         <View style={{ alignItems: 'center', gap: 2 }}>
