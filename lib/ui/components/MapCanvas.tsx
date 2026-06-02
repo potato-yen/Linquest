@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { View, Animated, Platform } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Reanimated, {
@@ -63,6 +63,25 @@ export function MapCanvas({ tiles, groups, myGroupId, now, width, height, onTile
   const vbH = (maxY - minY) + padding * 2;
   const offsetX = padding - minX;
   const offsetY = padding - minY;
+
+  const findTileAt = useCallback((x: number, y: number, currentScale: number, currentTx: number, currentTy: number) => {
+    const untransformedX = (x - currentTx) / currentScale;
+    const untransformedY = (y - currentTy) / currentScale;
+    const svgX = untransformedX * (vbW / width);
+    const svgY = untransformedY * (vbH / height);
+
+    let best: { id: string; distance: number } | null = null;
+    for (const { tile, p } of positioned) {
+      const dx = svgX - (p.x + offsetX);
+      const dy = svgY - (p.y + offsetY);
+      const distance = Math.hypot(dx, dy);
+      if (distance <= HEX_SIZE && (!best || distance < best.distance)) {
+        best = { id: tile.id, distance };
+      }
+    }
+
+    if (best) onTilePress?.(best.id);
+  }, [height, offsetX, offsetY, onTilePress, positioned, vbH, vbW, width]);
 
   const prevSelfIds = useRef<Set<string>>(new Set());
   const prevWave = useRef<Map<string, string | null> | null>(null);
@@ -183,7 +202,14 @@ export function MapCanvas({ tiles, groups, myGroupId, now, width, height, onTile
         clamp: [-limits.maxY, limits.maxY],
       });
     });
-  const mapGesture = Gesture.Simultaneous(pinch, pan);
+  const tap = Gesture.Tap()
+    .maxDuration(260)
+    .maxDistance(14)
+    .onEnd((e, success) => {
+      if (!success || !onTilePress) return;
+      runOnJS(findTileAt)(e.x, e.y, scale.value, tx.value, ty.value);
+    });
+  const mapGesture = Gesture.Simultaneous(pinch, pan, tap);
   const translateStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: tx.value }, { translateY: ty.value }],
   }));
@@ -261,7 +287,6 @@ export function MapCanvas({ tiles, groups, myGroupId, now, width, height, onTile
                     cy={p.y + offsetY}
                     render={r}
                     groupColor={r.ownerGroupId ? groupColorById[r.ownerGroupId] ?? null : null}
-                    onPress={onTilePress}
                   />
                 );
               })}
