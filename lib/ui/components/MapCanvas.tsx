@@ -12,6 +12,7 @@ import { color, tile as tileTok } from '../tokens';
 import type { HexTile as HexTileRow } from '../../territory/types';
 import { TerritoryBg } from '../illustrations/scenes';
 import { shouldEnableMapPan, supportsAnimatedCooldownPattern } from './map-canvas-support';
+import { viewportPointToSvgPoint } from './map-canvas-hit-test';
 import {
   clampMapScale,
   clampMapTranslation,
@@ -65,15 +66,23 @@ export function MapCanvas({ tiles, groups, myGroupId, now, width, height, onTile
   const offsetY = padding - minY;
 
   const findTileAt = useCallback((x: number, y: number, currentScale: number, currentTx: number, currentTy: number) => {
-    const untransformedX = (x - currentTx) / currentScale;
-    const untransformedY = (y - currentTy) / currentScale;
-    const svgX = untransformedX * (vbW / width);
-    const svgY = untransformedY * (vbH / height);
+    const point = viewportPointToSvgPoint(
+      { x, y },
+      {
+        width,
+        height,
+        viewBoxWidth: vbW,
+        viewBoxHeight: vbH,
+        scale: currentScale,
+        translateX: currentTx,
+        translateY: currentTy,
+      },
+    );
 
     let best: { id: string; distance: number } | null = null;
     for (const { tile, p } of positioned) {
-      const dx = svgX - (p.x + offsetX);
-      const dy = svgY - (p.y + offsetY);
+      const dx = point.x - (p.x + offsetX);
+      const dy = point.y - (p.y + offsetY);
       const distance = Math.hypot(dx, dy);
       if (distance <= HEX_SIZE && (!best || distance < best.distance)) {
         best = { id: tile.id, distance };
