@@ -40,4 +40,34 @@ describe('realtime battle presence', () => {
       },
     ]);
   });
+
+  it('deduplicates a user with multiple presence metas', () => {
+    const channel = {
+      presenceState: () => ({
+        'user-2': [
+          {
+            user_id: 'user-2',
+            group_id: 'group-b',
+            in_battle: false,
+            last_active_at: '2026-05-11T10:00:00.000Z',
+          },
+          {
+            user_id: 'user-2',
+            group_id: 'group-b',
+            in_battle: false,
+            last_active_at: '2026-05-11T10:01:00.000Z',
+          },
+        ],
+      }),
+    };
+
+    expect(listOnlineOpponents(channel as never, 'group-a')).toEqual([
+      {
+        user_id: 'user-2',
+        group_id: 'group-b',
+        in_battle: false,
+        last_active_at: '2026-05-11T10:01:00.000Z',
+      },
+    ]);
+  });
 });

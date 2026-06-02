@@ -33,7 +33,13 @@ export function listOnlineOpponents(
   channel: PresenceChannelLike,
   myGroupId: string,
 ): PresenceEntry[] {
-  return Object.values(channel.presenceState())
+  const opponents = new Map<string, PresenceEntry>();
+  Object.values(channel.presenceState())
     .flat()
-    .filter((entry) => entry.group_id !== myGroupId && !entry.in_battle);
+    .forEach((entry) => {
+      if (entry.group_id === myGroupId || entry.in_battle) return;
+      opponents.set(entry.user_id, entry);
+    });
+
+  return [...opponents.values()];
 }

@@ -101,33 +101,42 @@ export default function MapScreen() {
     })();
   }, [state.status, activityId, resolvedGroupId, sb]);
 
+  const loadBusyUsers = useCallback(async (): Promise<Set<string>> => {
+    const { data: battles } = await sb
+      .from('battles')
+      .select('challenger_user_id, defender_user_id')
+      .eq('activity_id', activityId)
+      .in('status', ['pending_invite', 'in_progress']);
+
+    const busyUsers = new Set<string>();
+    (battles ?? []).forEach((battle: any) => {
+      if (battle.challenger_user_id) busyUsers.add(battle.challenger_user_id);
+      if (battle.defender_user_id) busyUsers.add(battle.defender_user_id);
+    });
+    return busyUsers;
+  }, [activityId, sb]);
+
+  const trackPresence = useCallback(async (channel: RealtimeChannel | null = presenceChannelRef.current) => {
+    if (!channel) return;
+    if (!resolvedGroupId || s.status !== 'auth' || !authUserId) return;
+    try {
+      const busyUsers = await loadBusyUsers();
+      await channel.track({
+        user_id: authUserId,
+        group_id: resolvedGroupId,
+        in_battle: busyUsers.has(authUserId),
+        last_active_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.warn('[territory] failed to track presence', error);
+    }
+  }, [authUserId, loadBusyUsers, resolvedGroupId, s.status]);
+
   const syncPresence = useCallback(async (channel: RealtimeChannel | null = presenceChannelRef.current) => {
     if (!channel) return;
     if (!resolvedGroupId || s.status !== 'auth' || !authUserId) return;
     try {
-      const { data: battles } = await sb
-        .from('battles')
-        .select('challenger_user_id, defender_user_id')
-        .eq('activity_id', activityId)
-        .in('status', ['pending_invite', 'in_progress']);
-
-      const amIBusy = (battles ?? []).some(
-        (b: any) => b.challenger_user_id === authUserId || b.defender_user_id === authUserId,
-      );
-
-      // Update our own presence state if it changed
-      await channel.track({
-        user_id: authUserId,
-        group_id: resolvedGroupId,
-        in_battle: amIBusy,
-        last_active_at: new Date().toISOString(),
-      });
-
-      const busyUsers = new Set<string>();
-      (battles ?? []).forEach((battle: any) => {
-        if (battle.challenger_user_id) busyUsers.add(battle.challenger_user_id);
-        if (battle.defender_user_id) busyUsers.add(battle.defender_user_id);
-      });
+      const busyUsers = await loadBusyUsers();
       const opponents = listOnlineOpponents(channel, resolvedGroupId)
         .filter((op) => !busyUsers.has(op.user_id));
       const enriched = opponents.map((op) => ({
@@ -141,7 +150,7 @@ export default function MapScreen() {
     } catch (error) {
       console.warn('[territory] failed to sync presence', error);
     }
-  }, [activityId, resolvedGroupId, s.status, sb, authUserId]);
+  }, [authUserId, loadBusyUsers, resolvedGroupId, s.status]);
 
   // Presence channel — open while map is mounted and group is resolved
   useEffect(() => {
@@ -160,17 +169,28 @@ export default function MapScreen() {
       },
       setup: (channel) => {
         presenceChannelRef.current = channel as RealtimeChannel;
-        return channel.on('presence', { event: 'sync' }, () => {
-          void syncPresence();
-        });
+        return channel
+          .on('presence', { event: 'sync' }, () => {
+            void syncPresence();
+          })
+          .on('presence', { event: 'join' }, () => {
+            void syncPresence();
+          })
+          .on('presence', { event: 'leave' }, () => {
+            void syncPresence();
+          });
       },
       subscribe: (channel) => {
         channel.subscribe((status: string) => {
           if (status === 'SUBSCRIBED') {
             if (!active) return;
-            void syncPresence(channel as RealtimeChannel);
-            heartbeatTimer = setInterval(() => {
+            void trackPresence(channel as RealtimeChannel).then(() => {
               void syncPresence(channel as RealtimeChannel);
+            });
+            heartbeatTimer = setInterval(() => {
+              void trackPresence(channel as RealtimeChannel).then(() => {
+                void syncPresence(channel as RealtimeChannel);
+              });
             }, 10_000);
           }
         });
@@ -190,7 +210,7 @@ export default function MapScreen() {
       presenceChannelRef.current = null;
       unsubscribe();
     };
-  }, [activityId, resolvedGroupId, s.status, sb, syncPresence, authUserId]);
+  }, [activityId, resolvedGroupId, s.status, sb, syncPresence, trackPresence, authUserId]);
 
   useEffect(() => {
     if (!resolvedGroupId || s.status !== 'auth') return;
@@ -207,14 +227,16 @@ export default function MapScreen() {
             filter: `activity_id=eq.${activityId}`,
           },
           () => {
-            void syncPresence();
+            void trackPresence().then(() => {
+              void syncPresence();
+            });
           },
         ),
       onError: (error) => {
         console.warn('[territory] battle sync setup failed', error);
       },
     });
-  }, [activityId, resolvedGroupId, s.status, sb, syncPresence]);
+  }, [activityId, resolvedGroupId, s.status, sb, syncPresence, trackPresence]);
 
   useEffect(() => {
     if (!mapId) return;
@@ -497,32 +519,32 @@ export default function MapScreen() {
       />
 
       {/* Tile detail sheet */}
-      {activeTile ? (
-        <Sheet ref={sheetRef} onClose={() => setActiveTileId(null)} snapPoints={['40%']}>
-          {activeTile.kind === 'special' ? (
-	            <PresenceList
-	              entries={presenceList}
-	              onChallenge={async (defenderId) => {
-	                if (isEnded || attackPending) return;
-	                setAttackPending(true);
-	                setAttackError(null);
-	                try {
-	                  const battleId = await sendBattleInvite(sb, {
-	                    activity_id: activityId,
+      <Sheet ref={sheetRef} onClose={() => setActiveTileId(null)} snapPoints={['40%']}>
+        {activeTile ? (
+          activeTile.kind === 'special' ? (
+            <PresenceList
+              entries={presenceList}
+              onChallenge={async (defenderId) => {
+                if (isEnded || attackPending) return;
+                setAttackPending(true);
+                setAttackError(null);
+                try {
+                  const battleId = await sendBattleInvite(sb, {
+                    activity_id: activityId,
                     tile_id: activeTile.id,
                     defender_user_id: defenderId,
                   });
                   sheetRef.current?.close();
-	                  router.push(`/battle/${battleId}` as any);
-	                } catch (e) {
-	                  console.warn('sendBattleInvite failed', e);
-	                  setAttackError(mapError(e).message);
-	                  refresh();
-	                } finally {
-	                  setAttackPending(false);
-	                }
-	              }}
-	            />
+                  router.push(`/battle/${battleId}` as any);
+                } catch (e) {
+                  console.warn('sendBattleInvite failed', e);
+                  setAttackError(mapError(e).message);
+                  refresh();
+                } finally {
+                  setAttackPending(false);
+                }
+              }}
+            />
           ) : (
             <TileDetailSheet
               render={tileRender ?? computeTileRender(activeTile, { myGroupId: resolvedGroupId, now })}
@@ -538,16 +560,16 @@ export default function MapScreen() {
               }
               costLabel={tileSpec ? tileSpec.cost.toString() : '—'}
               rewardLabel={tileSpec ? tileSpec.success_reward.toString() : '—'}
-	              statusLabel={activeTileStatusLabel}
-	              statusCountdown={activeTileStatusCountdown}
-	              warningMessage={tileWarningMessage}
-	              attackable={tileActionState.canAttack && !attackPending}
-	              onAttack={onAttack}
-	              specialDisabled={isEnded}
-	            />
-          )}
-        </Sheet>
-      ) : null}
+              statusLabel={activeTileStatusLabel}
+              statusCountdown={activeTileStatusCountdown}
+              warningMessage={tileWarningMessage}
+              attackable={tileActionState.canAttack && !attackPending}
+              onAttack={onAttack}
+              specialDisabled={isEnded}
+            />
+          )
+        ) : null}
+      </Sheet>
 
       {/* Answering overlay */}
       {answering ? (
@@ -580,15 +602,15 @@ export default function MapScreen() {
               ) : null}
             </>
           ) : null}
-	          <Button title="放棄" variant="ghost" onPress={() => { void engine.abort(); setAnswering(false); }} />
-	        </View>
-	      ) : null}
-	      <Toast
-	        visible={!!attackError}
-	        message={attackError ?? ''}
-	        variant="warm"
-	        onHide={() => setAttackError(null)}
-	      />
-	    </ScreenScaffold>
-	  );
-	}
+          <Button title="放棄" variant="ghost" onPress={() => { void engine.abort(); setAnswering(false); }} />
+        </View>
+      ) : null}
+      <Toast
+        visible={!!attackError}
+        message={attackError ?? ''}
+        variant="warm"
+        onHide={() => setAttackError(null)}
+      />
+    </ScreenScaffold>
+  );
+}
