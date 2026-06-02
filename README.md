@@ -1,48 +1,112 @@
 # Linquest
 
-Linquest 是一個結合教師帶班領地對戰與學生個人 roadmap 練習的 Expo / React Native 專案，後端使用 hosted Supabase。
+Linquest 是一個把個人單字複習與班級競賽活動整合在一起的學習 app。學生可以在平時走自己的 roadmap 關卡、累積進度與複習節奏；老師則可以建立班級活動，讓學生分組進入同一張領地地圖，透過答題、拓荒、爭奪與 1v1 對戰，把學習表現轉成團隊競爭。
 
-## 目前狀態
+整個專案使用單一 Expo / React Native codebase，同時支援學生端與教師端，後端使用 hosted Supabase。
 
-- 學生端基礎流程、roadmap、territory 已有主體。
-- realtime battle 與部分前端 polish 仍在進行中。
-- teacher console 後端已落地，前端仍有缺口。
+## 核心體驗
 
-正式規格請看：
+### 1. Roadmap 個人練習
 
-- `SPEC.md`
-- `thought.md`
-- `docs/superpowers/specs/`
-- `docs/superpowers/plans/`
+- 以關卡方式推進單字學習
+- 每關依照目前 stage 對應的 level 抽題
+- 依作答結果解鎖下一關
+- 顯示待複習題量與關卡進度
+- 題庫內容來自 Google Sheets
+
+### 2. Territory 班級領地戰
+
+- 教師建立活動後，學生可在活動期間加入同一張六邊形地圖
+- 玩家從己方領地向外拓張，攻佔一般格、倍率格與特殊格
+- 一般格與倍率格以答題挑戰決定是否成功佔領
+- 特殊格需要與其他組玩家進行 1v1 即時對戰
+- 活動可查看地圖、排行榜與結算結果
+
+### 3. Teacher Console
+
+- 建立班級並產生 class code
+- 建立活動 draft
+- 上傳活動用自訂 CSV 題庫
+- Publish 活動、查看活動 dashboard 與結算頁
+- 刪除活動與相關活動資料
+
+### 4. Realtime Battle
+
+- 特殊格採 1v1 同步對戰
+- 以 Supabase Realtime 同步房間狀態與 presence
+- 對戰過程寫入 battle attempts，並在結束後回寫領地結果
+
+## 功能範圍
+
+### 學生端
+
+- 註冊 / 登入 / 忘記密碼
+- 首頁摘要
+- Roadmap 路線圖與關卡作答
+- 活動列表
+- 加入班級
+- Territory 地圖、排行榜、結算頁
+- Battle 對戰頁
+
+### 教師端
+
+- 班級建立與管理
+- 活動建立、發布、結束、刪除
+- 自訂題庫匯入與預覽
+- Dashboard 與活動統計查詢
+
+### 系統與後端
+
+- Supabase Auth
+- PostgreSQL schema、RLS、RPC
+- Realtime 對戰同步
+- Edge Function 排程邏輯
+- Unit / integration tests
 
 ## 技術棧
 
 - Expo Router
 - React Native / React Native Web
 - TypeScript
-- Supabase Auth / Postgres / Realtime
+- Supabase Auth / Postgres / Realtime / Edge Functions
 - Jest
 
-## 開發前置
+## 專案結構
 
-請先確認本機已有：
+- `app/`：Expo Router 頁面與 route tree
+- `lib/auth`：登入與使用者相關 service
+- `lib/classes`：班級建立、加入與管理
+- `lib/roadmap`：roadmap 題庫、進度、抽題與解鎖邏輯
+- `lib/territory`：地圖生成、佔領規則、refresh、結算與財政邏輯
+- `lib/realtime-battle`：battle 房間、同步、presence 與提交流程
+- `lib/teacher-console`：教師活動與 dashboard service
+- `lib/teacher-console-ui`：教師端表單與畫面狀態整理
+- `lib/answering`：共用答題引擎與 adapters
+- `lib/ui`：共用 UI components、tokens、hooks 與 session context
+- `supabase/migrations/`：資料庫 migrations
+- `supabase/functions/territory-tick/`：territory / lifecycle 邏輯的 Edge Function
+- `tests/unit/`：純邏輯與 service 單元測試
+- `tests/integration/`：依賴 hosted Supabase 的整合測試
+
+## 開發需求
 
 - Node.js 20+
 - npm
 - Expo 開發環境
 - 可連線的 hosted Supabase 專案
+- 若需要推 migration，需安裝 Supabase CLI
 
-這個 repo 目前不是以本地 Supabase Docker stack 為前提，日常開發直接連 hosted Supabase。
+本專案不假設有本地 Supabase Docker stack，開發時直接透過 `.env` 連線 hosted Supabase。
 
 ## 環境變數
 
-先把 `.env.example` 複製成 `.env`，再填入實際值：
+先建立 `.env`：
 
 ```bash
 cp .env.example .env
 ```
 
-`.env` 需要的欄位：
+需要填入的欄位：
 
 ```bash
 EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
@@ -54,118 +118,72 @@ EXPO_PUBLIC_GOOGLE_SHEET_SHARE_URL=https://docs.google.com/spreadsheets/d/YOUR_S
 
 說明：
 
-- `EXPO_PUBLIC_SUPABASE_URL`、`EXPO_PUBLIC_SUPABASE_ANON_KEY`：app 啟動必填。
-- `SUPABASE_SERVICE_ROLE_KEY`：給測試與部分 server-side service 使用，不要外洩。
-- `EXPO_PUBLIC_GOOGLE_SHEET_SHARE_URL`：roadmap 題庫來源；Google Sheet 需開成「知道連結的使用者可檢視」。
-- `SUPABASE_TEST_PROJECT_REF`：只有在未來有獨立 hosted 測試專案時才有用；目前 repo 沒有獨立 test project，整合測試預設不跑。
+- `EXPO_PUBLIC_SUPABASE_URL`：Supabase 專案網址
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY`：前端使用的 anon key
+- `SUPABASE_SERVICE_ROLE_KEY`：測試與部分 service-side 流程使用
+- `SUPABASE_TEST_PROJECT_REF`：整合測試若要指向獨立 test project 時使用
+- `EXPO_PUBLIC_GOOGLE_SHEET_SHARE_URL`：roadmap 題庫來源，需可公開讀取
 
-## 第一次啟動流程
+## 本機啟動
 
-1. 安裝依賴
+安裝依賴：
 
 ```bash
 npm install
 ```
 
-2. 建立並填好 `.env`
-
-```bash
-cp .env.example .env
-```
-
-3. 啟動 Expo
+啟動 Web：
 
 ```bash
 npm run web
 ```
 
-如果你要跑模擬器，也可以用：
+其他常用指令：
 
 ```bash
+npm start
 npm run ios
 npm run android
 ```
 
-## 日常開發流程
+## 資料庫與 Supabase 流程
 
-最常用的是 web 預覽：
-
-```bash
-npm run web
-```
-
-若只想開 Metro：
-
-```bash
-npm start
-```
-
-## 資料庫 / migration 流程
-
-SQL migration 都在 `supabase/migrations/`。
-
-注意事項：
-
-- migration 採 append-only，不要修改已經推過的檔案。
-- schema 有變更時，新增一支新的 migration。
-- 這個 repo 的工作模式是由使用者手動執行 `supabase db push`，不是由 agent 直接套用。
+SQL migrations 都放在 `supabase/migrations/`，採 append-only。
 
 典型流程：
 
-1. 在 `supabase/migrations/` 新增 migration。
-2. 檢查 `.env` 指向正確的 hosted Supabase 專案。
-3. 由你手動執行：
+1. 新增一支新的 timestamped migration
+2. 確認 `.env` 指向正確的 hosted Supabase 專案
+3. 由使用者手動執行：
 
 ```bash
 supabase db push
 ```
 
-如果有 Edge Function，程式碼在 `supabase/functions/territory-tick/`。
+注意：
+
+- 不要修改已經推過的 migration
+- `territory-tick` 的排程需透過 Supabase Dashboard 設定
+- 這個 repo 的工作模式不是由 agent 直接套用資料庫變更
 
 ## 測試
 
-單元測試可直接跑：
+跑全部 Jest 測試：
 
 ```bash
 npm test
 ```
 
-或只跑 unit：
+只跑 unit tests：
 
 ```bash
 npm run test:unit
 ```
 
-整合測試指令雖然存在：
+跑 integration tests：
 
 ```bash
 npm run test:integration
 ```
 
-但目前有一個實務限制：
-
-- 這套整合測試會要求一個獨立的 hosted Supabase test project。
-- 目前專案沒有另外配置該測試專案，所以不要把它指到主專案上硬跑。
-
-## 專案結構
-
-- `app/`：Expo Router 路由
-- `components/`：共用元件
-- `lib/`：服務模組、純邏輯、前端共用工具
-- `supabase/migrations/`：schema 與 RPC migration
-- `supabase/functions/`：Supabase Edge Functions
-- `supabase/seed/`：seed 資料
-- `tests/`：Jest 測試
-- `docs/`：規格、設計與實作計畫
-
-## 常用指令
-
-```bash
-npm install
-npm start
-npm run web
-npm run ios
-npm run android
-npm test
-npm run test:unit
-```
+Integration tests 需要一個獨立的 hosted Supabase test project；不要把它直接指到主要開發專案。
