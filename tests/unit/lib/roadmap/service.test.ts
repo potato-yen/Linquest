@@ -62,7 +62,9 @@ describe('submitRoadmapAttempt', () => {
     expect(sb.insert).toHaveBeenCalledWith(expect.objectContaining({
       user_id: 'user-1',
       is_correct: true,
-      payload: { stable_question_id: 'L1_01' }
+      stable_question_id: 'L1_01',
+      question_id: null,
+      context: 'roadmap',
     }));
 
     expect(sb.from).toHaveBeenCalledWith('roadmap_mastery');

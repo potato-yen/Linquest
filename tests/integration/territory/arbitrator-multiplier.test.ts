@@ -10,7 +10,7 @@ describeIntegration('territory arbitrator multiplier flow', () => {
     await resetDb();
   });
 
-  it('neutral 2x capture pays 20, earns 32, and degrades to normal', async () => {
+  it('neutral 2x capture pays 20, earns 32, and preserves multiplier value', async () => {
     const fixture = await setupTwoGroupFixture();
     const tile = await fixture.makeAdjacentMultiplierTileForAttacker(2);
     const before = await fixture.getTreasury(fixture.attackerGroupId);
@@ -39,12 +39,12 @@ describeIntegration('territory arbitrator multiplier flow', () => {
       .select('kind, multiplier, owner_group_id')
       .eq('id', tile.id)
       .single();
-    expect(updated!.kind).toBe('normal');
-    expect(updated!.multiplier).toBeNull();
+    expect(updated!.kind).toBe('multiplier');
+    expect(updated!.multiplier).toBe(2);
     expect(updated!.owner_group_id).toBe(fixture.attackerGroupId);
   });
 
-  it('self-recapture failure degrades the tile and writes an audit event', async () => {
+  it('self-recapture failure preserves multiplier value and clears the lock', async () => {
     const fixture = await setupTwoGroupFixture();
     const tile = await fixture.makeAdjacentMultiplierTileForAttacker(2, fixture.attackerGroupId);
 
@@ -65,11 +65,12 @@ describeIntegration('territory arbitrator multiplier flow', () => {
 
     const { data: updated } = await fixture.svc
       .from('hex_tiles')
-      .select('kind, multiplier')
+      .select('kind, multiplier, active_challenge_id')
       .eq('id', tile.id)
       .single();
-    expect(updated!.kind).toBe('normal');
-    expect(updated!.multiplier).toBeNull();
+    expect(updated!.kind).toBe('multiplier');
+    expect(updated!.multiplier).toBe(2);
+    expect(updated!.active_challenge_id).toBeNull();
 
     const { data: events } = await fixture.svc
       .from('territory_events')
